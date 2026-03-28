@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="
+    default-src 'self';
+    script-src 'self' 'unsafe-inline';
+    style-src 'self' 'unsafe-inline';
+    font-src 'self';
+    img-src 'self' data: blob:;
+    connect-src 'self';
+  "
+    />
+    <title>Terminal</title>
+    <link rel="stylesheet" href="vendor/xterm/xterm.css" />
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: #1a1d23;
+        color: #c8d1da;
+        font-family: 'JetBrains Mono', monospace;
+      }
+      #terminal {
+        width: 100%;
+        height: 100%;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="terminal"></div>
+
+    <script src="vendor/xterm/xterm.js"></script>
+    <script src="vendor/xterm/addon-fit.js"></script>
+    <script src="vendor/xterm/addon-webgl.js"></script>
+
+    <script>
+      (function () {
+        const params = new URLSearchParams(window.location.search);
+        const terminalId = decodeURIComponent(params.get('terminalId') || '');
+        const title = decodeURIComponent(params.get('title') || 'Terminal');
+
+        document.title = title;
+
+        if (!terminalId) {
+          document.body.textContent = 'Error: no terminalId';
+          return;
+        }
+
+        const FitAddonClass = (window.FitAddon && window.FitAddon.FitAddon) || window.FitAddon;
+        const WebglAddonClass = (window.WebglAddon && window.WebglAddon.WebglAddon) || window.WebglAddon;
+
+        const term = new window.Terminal({
+          theme: {
+            background: '#1a1d23',
+            foreground: '#c8d1da',
+            cursor: '#5d8da8',
+            cursorAccent: '#1a1d23',
+            selectionBackground: 'rgba(93, 141, 168, 0.3)',
+          },
+          fontFamily: "'JetBrains Mono', monospace",
+          fontSize: 14,
+          lineHeight: 1.3,
+          cursorBlink: true,
+          cursorStyle: 'bar',
+          scrollback: 10000,
+        });
+
+        const fitAddon = new FitAddonClass();
+        term.loadAddon(fitAddon);
+        term.open(document.getElementById('terminal'));
+
+        try {
+          if (WebglAddonClass) {
+            const webgl = new WebglAddonClass();
+            webgl.onContextLoss(() => webgl.dispose());
+            term.loadAddon(webgl);
+          }
+        } catch (_e) {
+          /* canvas fallback */
+        }
+
+        fitAddon.fit();
+
+        // Copy/Paste
+        term.attachCustomKeyEventHandler(function (e) {
+          if (e.ctrlKey && e.key === 'c' && e.type === 'keydown') {
+            var sel = term.getSelection();
+            if (sel) {
+              navigator.clipboard.writeText(sel);
+              term.clearSelection();
+              return false;
+            }
+          }
+          if (e.ctrlKey && (e.key === 'v' || e.key === 'V') && e.type === 'keydown') {
+            navigator.clipboard.readText().then(function (text) {
+              if (text) term.paste(text);
+            });
+            return false;
+          }
+          return true;
+        });
+
+        // User input -> main process
+        term.onData(function (data) {
+          window.agentDesk.terminal.write(terminalId, data);
+        });
+
+        // Subscribe to output from main process
+        window.agentDesk.terminal.subscribe(terminalId);
+
+        window.agentDesk.terminal.onData(function (id, data) {
+          if (id === terminalId) term.write(data);
+        });
+
+        window.agentDesk.terminal.onExit(function (id, exitCode) {
+          if (id === terminalId) {
+            var msg =
+              exitCode === 0
+                ? '\r\n\x1b[90m[Process exited]\x1b[0m\r\n'
+                : '\r\n\x1b[90m[Process exited with code ' + exitCode + ']\x1b[0m\r\n';
+            term.write(msg);
+          }
+        });
+
+        var resizeTimer = null;
+        window.addEventListener('resize', function () {
+          if (resizeTimer) clearTimeout(resizeTimer);
+          resizeTimer = setTimeout(function () {
+            fitAddon.fit();
+            var dims = fitAddon.proposeDimensions();
+            if (dims && dims.cols > 1 && dims.rows > 1) {
+              window.agentDesk.terminal.resize(terminalId, dims.cols, dims.rows);
+            }
+          }, 80);
+        });
+
+        term.focus();
+      })();
+    </script>
+  </body>
+</html>

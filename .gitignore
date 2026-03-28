@@ -1,0 +1,14 @@
+node_modules/
+dist/
+src/renderer/vendor/
+release/
+*.js.map
+*.d.ts
+.env
+.DS_Store
+Thumbs.db
+test-results/
+playwright-report/
+output/
+recordings/
+_patch*.py

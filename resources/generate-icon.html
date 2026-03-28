@@ -1,0 +1,43 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Generate agent-desk icon</title>
+  </head>
+  <body style="background: #333; color: #fff; font-family: sans-serif; padding: 40px">
+    <h2>Agent Desk Icon Generator</h2>
+    <p>Click to download PNG icons at various sizes.</p>
+    <div id="previews" style="display: flex; gap: 20px; flex-wrap: wrap; margin: 20px 0"></div>
+    <script>
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+      <rect width="512" height="512" rx="96" fill="#1a1d23"/>
+      <rect x="48" y="48" width="416" height="416" rx="64" fill="#21252b" stroke="#2d3139" stroke-width="4"/>
+      <path d="M140 200 L220 256 L140 312" fill="none" stroke="#5d8da8" stroke-width="28" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="248" y1="312" x2="372" y2="312" stroke="#5d8da8" stroke-width="28" stroke-linecap="round"/>
+    </svg>`;
+      const sizes = [16, 32, 48, 64, 128, 256, 512];
+      const container = document.getElementById('previews');
+      for (const size of sizes) {
+        const canvas = document.createElement('canvas');
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext('2d');
+        const img = new Image();
+        img.onload = () => {
+          ctx.drawImage(img, 0, 0, size, size);
+          const div = document.createElement('div');
+          div.style.textAlign = 'center';
+          div.appendChild(canvas);
+          const a = document.createElement('a');
+          a.href = canvas.toDataURL('image/png');
+          a.download = `icon-${size}.png`;
+          a.textContent = `${size}x${size}`;
+          a.style.color = '#5d8da8';
+          a.style.display = 'block';
+          div.appendChild(a);
+          container.appendChild(div);
+        };
+        img.src = 'data:image/svg+xml;base64,' + btoa(svg);
+      }
+    </script>
+  </body>
+</html>

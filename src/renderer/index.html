@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="
+    default-src 'self';
+    script-src 'self';
+    style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+    font-src 'self' https://fonts.gstatic.com;
+    img-src 'self' data: blob:;
+    connect-src 'self' http://localhost:* ws://localhost:*;
+    frame-src http://localhost:* https://localhost:*;
+  "
+    />
+    <title>Agent Desk</title>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,300,0,0"
+      rel="stylesheet"
+    />
+
+    <!-- xterm.js (local vendor) -->
+    <link rel="stylesheet" href="vendor/xterm/xterm.css" />
+    <script src="vendor/xterm/xterm.js"></script>
+    <script src="vendor/xterm/addon-fit.js"></script>
+    <script src="vendor/xterm/addon-webgl.js"></script>
+    <script src="vendor/xterm/addon-search.js"></script>
+    <script src="vendor/xterm/addon-web-links.js"></script>
+    <!-- dockview-core (local vendor) -->
+    <link rel="stylesheet" href="vendor/dockview/dockview.css" />
+    <script src="vendor/dockview/dockview-core.min.js"></script>
+
+    <link rel="stylesheet" href="styles.css" />
+    <script src="theme-init.js"></script>
+  </head>
+  <body>
+    <div id="app">
+      <!-- Titlebar -->
+      <div id="titlebar">
+        <div class="app-title">
+          <span class="material-symbols-outlined app-icon">terminal</span>
+          Agent Desk
+        </div>
+        <div class="window-controls">
+          <button id="btn-minimize" aria-label="Minimize">
+            <span class="material-symbols-outlined">minimize</span>
+          </button>
+          <button id="btn-maximize" aria-label="Maximize">
+            <span class="material-symbols-outlined">crop_square</span>
+          </button>
+          <button id="btn-close" class="close" aria-label="Close">
+            <span class="material-symbols-outlined">close</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Main layout -->
+      <div id="main">
+        <!-- Sidebar -->
+        <nav id="sidebar">
+          <div class="nav-top">
+            <button class="nav-btn active" data-view="terminals" data-tooltip="Terminals" aria-label="Terminals">
+              <span class="material-symbols-outlined">terminal</span>
+            </button>
+            <button class="nav-btn" data-view="comm" data-tooltip="Agent Comm" aria-label="Agent Comm">
+              <span class="material-symbols-outlined">forum</span>
+            </button>
+            <button class="nav-btn" data-view="tasks" data-tooltip="Tasks" aria-label="Tasks">
+              <span class="material-symbols-outlined">task_alt</span>
+            </button>
+            <button class="nav-btn" data-view="knowledge" data-tooltip="Agent Knowledge" aria-label="Agent Knowledge">
+              <span class="material-symbols-outlined">psychology</span>
+            </button>
+            <button class="nav-btn" data-view="monitor" data-tooltip="Agent Monitor" aria-label="Agent Monitor">
+              <span class="material-symbols-outlined">hub</span>
+            </button>
+            <button
+              id="btn-event-stream"
+              class="nav-btn nav-btn-action"
+              data-tooltip="Event Stream"
+              aria-label="Toggle Event Stream"
+            >
+              <span class="material-symbols-outlined">timeline</span>
+            </button>
+          </div>
+          <div class="nav-bottom">
+            <button
+              id="btn-start-claude"
+              class="nav-btn nav-btn-action"
+              data-tooltip="Start Claude"
+              aria-label="Start Claude"
+            >
+              <span class="material-symbols-outlined">smart_toy</span>
+            </button>
+            <button
+              id="btn-new-terminal"
+              class="nav-btn nav-btn-action"
+              data-tooltip="New Terminal"
+              aria-label="New Terminal"
+            >
+              <span class="material-symbols-outlined">add</span>
+            </button>
+            <button
+              id="btn-theme-toggle"
+              class="nav-btn nav-btn-action"
+              data-tooltip="Toggle Theme"
+              aria-label="Toggle Theme"
+            >
+              <span class="material-symbols-outlined">dark_mode</span>
+            </button>
+            <button
+              id="btn-help"
+              class="nav-btn nav-btn-action"
+              data-tooltip="Shortcuts"
+              aria-label="Keyboard Shortcuts"
+            >
+              <span class="material-symbols-outlined">help</span>
+            </button>
+            <button class="nav-btn" data-view="settings" data-tooltip="Settings" aria-label="Settings">
+              <span class="material-symbols-outlined">settings</span>
+            </button>
+          </div>
+        </nav>
+
+        <!-- Content -->
+        <div id="workspace">
+          <!-- Tab bar -->
+          <div id="tab-bar" role="tablist" aria-label="Terminal tabs">
+            <div id="tab-list"></div>
+            <button id="btn-new-tab" class="tab-new" title="New Terminal (Ctrl+Shift+T)" aria-label="New Terminal">
+              <span class="material-symbols-outlined">add</span>
+            </button>
+          </div>
+
+          <!-- Views -->
+          <div id="content">
+            <div id="terminal-views" class="view active"></div>
+
+            <div id="view-comm" class="webview-container">
+              <webview id="webview-comm" data-src="http://localhost:3421"></webview>
+            </div>
+
+            <div id="view-tasks" class="webview-container">
+              <webview id="webview-tasks" data-src="http://localhost:3422"></webview>
+            </div>
+
+            <div id="view-knowledge" class="webview-container">
+              <webview id="webview-knowledge" data-src="http://localhost:3423"></webview>
+            </div>
+
+            <div id="view-monitor" class="view agent-monitor"></div>
+
+            <div id="settings-panel" class="webview-container"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Status bar -->
+      <div id="status-bar">
+        <div class="status-left"></div>
+        <div class="status-center"></div>
+        <div class="status-right"></div>
+      </div>
+    </div>
+
+    <script src="keybinding-manager.js"></script>
+    <script src="shell-integration.js"></script>
+    <script src="theme-manager.js"></script>
+    <script src="settings.js"></script>
+    <script src="event-bus.js"></script>
+    <script src="agent-parser.js"></script>
+    <script src="event-stream.js"></script>
+    <script type="module" src="batch-launcher.js"></script>
+    <script type="module" src="templates.js"></script>
+    <script type="module" src="comm-graph.js"></script>
+    <script type="module" src="app.js"></script>
+  </body>
+</html>
