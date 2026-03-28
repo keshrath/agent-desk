@@ -41,9 +41,9 @@ test('getThemeById function is available', async () => {
 
 // ── Built-in Themes ──────────────────────────────────────────────────
 
-test('4 built-in themes are available', async () => {
+test('8 built-in themes are available', async () => {
   const builtins = await window.evaluate('getAllThemes().filter(t => t.builtin).length');
-  expect(builtins).toBe(4);
+  expect(builtins).toBe(8);
 });
 
 test('built-in themes include expected names', async () => {
@@ -52,6 +52,10 @@ test('built-in themes include expected names', async () => {
   expect(names).toContain('Default Light');
   expect(names).toContain('Dracula');
   expect(names).toContain('Nord');
+  expect(names).toContain('Gruvbox');
+  expect(names).toContain('Solarized');
+  expect(names).toContain('Catppuccin');
+  expect(names).toContain('GitHub');
 });
 
 test('each theme has required color properties', async () => {

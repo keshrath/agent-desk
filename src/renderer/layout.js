@@ -96,6 +96,19 @@ export function initDockview() {
             }
           }
 
+          el.addEventListener('auxclick', (ev) => {
+            if (ev.button === 1) {
+              ev.preventDefault();
+              ev.stopPropagation();
+              if (termId) registry.confirmCloseTerminal(termId);
+            }
+          });
+          el.addEventListener('mousedown', (ev) => {
+            if (ev.button === 1) {
+              ev.preventDefault();
+            }
+          });
+
           // Context menu on tab
           el.addEventListener('contextmenu', (ev) => {
             ev.preventDefault();

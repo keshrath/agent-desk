@@ -68,6 +68,9 @@ export const dom = {
   get viewMonitor() {
     return document.getElementById('view-monitor');
   },
+  get viewEvents() {
+    return document.getElementById('view-events');
+  },
   get settingsView() {
     return document.getElementById('settings-panel');
   },

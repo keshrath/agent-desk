@@ -284,7 +284,7 @@ async function restoreSession() {
   }
 
   if (!session || !session.terminals || session.terminals.length === 0) {
-    if (getSetting('newTerminalOnStartup') !== false) {
+    if (getSetting('newTerminalOnStartup') === true) {
       await createDefaultTerminal();
     }
     startLayoutAutoSave();
@@ -294,7 +294,7 @@ async function restoreSession() {
   const shouldRestore = await showRestorePrompt(session.terminals.length);
 
   if (!shouldRestore) {
-    if (getSetting('newTerminalOnStartup') !== false) {
+    if (getSetting('newTerminalOnStartup') === true) {
       await createDefaultTerminal();
     }
     startLayoutAutoSave();
@@ -459,6 +459,8 @@ document.addEventListener('DOMContentLoaded', function () {
   registry.setupNewTerminalButton();
   registry.setupClaudeButton();
   registry.setupThemeToggle();
+  registry.setupThemeToggleButton();
+  registry.setupSystemThemeListener();
   registry.setupHelpButton();
   registry.setupTrayActions();
   registry.setupWebviewStates();

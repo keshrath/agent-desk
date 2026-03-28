@@ -236,11 +236,11 @@ const COMMANDS = [
     },
   },
   {
-    id: 'toggle-event-stream',
-    label: 'Toggle Event Stream',
+    id: 'view-events',
+    label: 'View: Event Stream',
     icon: 'timeline',
     shortcut: 'Ctrl+E',
-    action: () => eventStream.toggle(),
+    action: () => registry.switchView('events'),
   },
   {
     id: 'chain-terminal',

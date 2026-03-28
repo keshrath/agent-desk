@@ -2,6 +2,13 @@
   "name": "agent-desk",
   "version": "1.0.0",
   "description": "Unified control center for AI coding agents — terminals, dashboards, and orchestration in one app",
+  "author": "Mathias Markl <mathias.markl@mukit.at>",
+  "license": "ISC",
+  "homepage": "https://github.com/keshrath/agent-desk",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/keshrath/agent-desk.git"
+  },
   "main": "dist/main/index.js",
   "type": "module",
   "scripts": {

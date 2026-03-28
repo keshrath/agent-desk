@@ -84,12 +84,7 @@
             <button class="nav-btn" data-view="monitor" data-tooltip="Agent Monitor" aria-label="Agent Monitor">
               <span class="material-symbols-outlined">hub</span>
             </button>
-            <button
-              id="btn-event-stream"
-              class="nav-btn nav-btn-action"
-              data-tooltip="Event Stream"
-              aria-label="Toggle Event Stream"
-            >
+            <button class="nav-btn" data-view="events" data-tooltip="Events" aria-label="Events">
               <span class="material-symbols-outlined">timeline</span>
             </button>
           </div>
@@ -113,8 +108,8 @@
             <button
               id="btn-theme-toggle"
               class="nav-btn nav-btn-action"
-              data-tooltip="Toggle Theme"
-              aria-label="Toggle Theme"
+              data-tooltip="Toggle Light/Dark"
+              aria-label="Toggle Light/Dark"
             >
               <span class="material-symbols-outlined">dark_mode</span>
             </button>
@@ -159,6 +154,8 @@
             </div>
 
             <div id="view-monitor" class="view agent-monitor"></div>
+
+            <div id="view-events" class="view"></div>
 
             <div id="settings-panel" class="webview-container"></div>
           </div>

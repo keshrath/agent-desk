@@ -56,7 +56,7 @@ const eventStream = (function () {
   let _panelEl = null;
   let _listEl = null;
   let _filterBarEl = null;
-  let _isVisible = false;
+  let _isVisible = true;
   let _eventCount = 0;
   let _timeUpdateTimer = null;
   let _events = [];
@@ -595,18 +595,8 @@ const eventStream = (function () {
       clearEvents();
     });
 
-    const collapseBtn = document.createElement('button');
-    collapseBtn.className = 'es-btn';
-    collapseBtn.title = 'Collapse panel';
-    collapseBtn.innerHTML = '<span class="material-symbols-outlined">expand_more</span>';
-    collapseBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      toggle();
-    });
-
     controls.appendChild(exportBtn);
     controls.appendChild(clearBtn);
-    controls.appendChild(collapseBtn);
 
     header.appendChild(titleSection);
     header.appendChild(controls);
@@ -675,6 +665,9 @@ const eventStream = (function () {
 
   function init() {
     createPanel();
+    // Always visible — rendered as a full view, not a collapsible panel
+    if (_panelEl) _panelEl.classList.add('visible');
+    _isVisible = true;
     _restoreEvents();
     _subscribe();
     _setupPersistence();

@@ -343,6 +343,7 @@ function _buildTerminalInstance(id, title) {
     _lastLineBuffer: '',
     _profileIcon: null,
     lastOutputTime: Date.now(),
+    createdAt: new Date().toISOString(),
   };
   state.terminals.set(id, termState);
   state.terminalOrder.push(id);
@@ -515,8 +516,10 @@ export async function createTerminal(opts = {}) {
 
     const defaultCommand = getSetting('defaultNewTerminalCommand') || getSetting('defaultShell') || 'claude';
     const command = opts.command || ptyInfo.command || defaultCommand;
-    const title = opts.title || (command === 'claude' ? 'Claude' : command);
-    const tabIcon = opts.icon || (command === 'claude' ? 'smart_toy' : 'terminal');
+    const COMMAND_LABELS = { claude: 'Claude', opencode: 'OpenCode' };
+    const COMMAND_ICONS = { claude: 'smart_toy', opencode: 'code' };
+    const title = opts.title || COMMAND_LABELS[command] || command;
+    const tabIcon = opts.icon || COMMAND_ICONS[command] || 'terminal';
 
     const { termState, panelId } = _buildTerminalInstance(id, title);
     termState._profileIcon = opts.icon || null;
@@ -709,16 +712,45 @@ function _updateEmptyState() {
 
       const text = document.createElement('div');
       text.className = 'empty-text';
-      text.append('No terminals open.', document.createElement('br'), 'Press ');
-      const kbd1 = document.createElement('kbd');
-      kbd1.textContent = 'Ctrl+Shift+T';
-      text.appendChild(kbd1);
-      text.append(' to create a terminal', document.createElement('br'), 'or ');
-      const kbd2 = document.createElement('kbd');
-      kbd2.textContent = 'Ctrl+Shift+C';
-      text.appendChild(kbd2);
-      text.append(' to start Claude.');
+      text.textContent = 'No terminals open.';
       emptyEl.appendChild(text);
+
+      const btnRow = document.createElement('div');
+      btnRow.className = 'empty-state-buttons';
+
+      const btnTerminal = document.createElement('button');
+      btnTerminal.className = 'empty-state-btn';
+      btnTerminal.innerHTML = '<span class="material-symbols-outlined">terminal</span> New Terminal';
+      btnTerminal.addEventListener('click', () => {
+        if (registry.createDefaultTerminal) registry.createDefaultTerminal();
+        else if (registry.createTerminal) registry.createTerminal({});
+      });
+      btnRow.appendChild(btnTerminal);
+
+      const btnClaude = document.createElement('button');
+      btnClaude.className = 'empty-state-btn empty-state-btn-accent';
+      btnClaude.innerHTML = '<span class="material-symbols-outlined">smart_toy</span> Claude';
+      btnClaude.addEventListener('click', () => {
+        if (registry.createClaudeTerminal) registry.createClaudeTerminal();
+        else if (registry.createTerminal) registry.createTerminal({ command: 'claude' });
+      });
+      btnRow.appendChild(btnClaude);
+
+      const btnOpenCode = document.createElement('button');
+      btnOpenCode.className = 'empty-state-btn';
+      btnOpenCode.innerHTML = '<span class="material-symbols-outlined">code</span> OpenCode';
+      btnOpenCode.addEventListener('click', () => {
+        registry.createTerminal({ command: 'opencode' });
+      });
+      btnRow.appendChild(btnOpenCode);
+
+      emptyEl.appendChild(btnRow);
+
+      const hint = document.createElement('div');
+      hint.className = 'empty-text-hint';
+      hint.innerHTML =
+        '<kbd>Ctrl+Shift+T</kbd> terminal &nbsp;·&nbsp; <kbd>Ctrl+Shift+C</kbd> Claude &nbsp;·&nbsp; <kbd>Ctrl+Shift+B</kbd> batch launch';
+      emptyEl.appendChild(hint);
 
       container.appendChild(emptyEl);
     }
@@ -872,6 +904,18 @@ export function setupDataHandlers() {
       title: ts.title,
       exitCode,
     });
+
+    // Auto-close terminals that exited quickly (< 10s uptime) — likely a startup failure
+    if (ts.createdAt) {
+      const uptime = Date.now() - new Date(ts.createdAt).getTime();
+      if (uptime < 10000) {
+        setTimeout(() => {
+          if (state.terminals.has(id) && state.terminals.get(id).status === 'exited') {
+            closeTerminal(id);
+          }
+        }, 3000);
+      }
+    }
 
     if (exitCode === 0) {
       registry.checkChainTrigger(id, 'exit-0');

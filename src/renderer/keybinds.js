@@ -58,9 +58,7 @@ function _registerKeybindingActions() {
   km.registerAction('commandPalette', () => registry.showCommandPalette());
   km.registerAction('quickSwitcher', () => registry.showQuickSwitcher());
   km.registerAction('showShortcuts', () => registry.showShortcutsOverlay());
-  km.registerAction('eventStream', () => {
-    if (typeof eventStream !== 'undefined') eventStream.toggle();
-  });
+  km.registerAction('eventStream', () => registry.switchView('events'));
   km.registerAction('saveWorkspace', () => registry.showWorkspaceSaveDialog());
   km.registerAction('loadWorkspace', () => registry.showWorkspaceLoadPicker());
   km.registerAction('batchLaunch', () => registry.showBatchLauncher());

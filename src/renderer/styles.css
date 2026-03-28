@@ -1395,6 +1395,55 @@ body {
   color: var(--text-muted);
 }
 
+.empty-state-buttons {
+  display: flex;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.empty-state-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--fg);
+  font-size: 13px;
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
+}
+
+.empty-state-btn:hover {
+  background: var(--surface-hover, #2a2e35);
+  border-color: var(--accent);
+}
+
+.empty-state-btn .material-symbols-outlined {
+  font-size: 18px;
+}
+
+.empty-state-btn-accent {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.empty-state-btn-accent:hover {
+  background: var(--accent-hover, #4a7a96);
+  border-color: var(--accent-hover, #4a7a96);
+}
+
+.empty-text-hint {
+  margin-top: 16px;
+  font-size: 11px;
+  color: var(--text-muted);
+  opacity: 0.6;
+}
+
 /* ============================================================
    11d. Webview Loading & Error States
    ============================================================ */
@@ -2615,23 +2664,35 @@ body {
    20. Event Stream Panel
    ============================================================ */
 .event-stream-panel {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 0;
-  max-height: 45vh;
-  background: var(--surface);
-  border-top: 1px solid var(--border);
-  z-index: 60;
   display: flex;
   flex-direction: column;
+  height: 100%;
+  background: var(--surface);
   overflow: hidden;
-  transition: height 200ms ease;
 }
 
 .event-stream-panel.visible {
-  height: 280px;
+  /* always visible when parent view is active */
+}
+
+.view {
+  display: none;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 5;
+}
+
+.view.active {
+  display: flex;
+  flex-direction: column;
+}
+
+#view-events {
+  height: 100%;
+  overflow: hidden;
 }
 
 .es-header {
@@ -2643,7 +2704,6 @@ body {
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
   min-height: 36px;
-  cursor: pointer;
   user-select: none;
 }
 
@@ -2802,13 +2862,16 @@ body {
 .es-list {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 2px 0;
+  scroll-behavior: smooth;
 }
 
 .es-event {
   display: flex;
   align-items: flex-start;
-  gap: 8px;
+  flex-wrap: wrap;
+  gap: 4px 8px;
   padding: 4px 12px;
   border-left: 3px solid transparent;
   cursor: pointer;
@@ -2829,11 +2892,12 @@ body {
 }
 
 .es-event-content {
-  flex: 1;
+  flex: 1 1 0;
   display: flex;
   align-items: baseline;
   gap: 8px;
   min-width: 0;
+  overflow: hidden;
 }
 
 .es-event-desc {
@@ -2861,7 +2925,7 @@ body {
 
 .es-event.expanded .es-event-desc {
   white-space: normal;
-  overflow: visible;
+  word-break: break-word;
 }
 
 .es-severity-error {
@@ -2877,12 +2941,15 @@ body {
 }
 
 .es-event-detail {
-  width: 100%;
+  flex-basis: 100%;
+  min-width: 0;
   margin-top: 4px;
+  margin-left: 22px;
   padding: 6px 8px;
   background: var(--bg);
   border-radius: 4px;
   border: 1px solid var(--border);
+  box-sizing: border-box;
 }
 
 .es-event-detail-text {
@@ -2891,13 +2958,15 @@ body {
   font-size: 11px;
   color: var(--text-muted);
   white-space: pre-wrap;
-  word-break: break-all;
+  word-break: break-word;
+  overflow-wrap: break-word;
   max-height: 160px;
   overflow-y: auto;
   line-height: 1.5;
 }
 
 .es-detail-btn {
+  display: inline-block;
   margin-top: 4px;
   padding: 2px 8px;
   border: 1px solid var(--border);
@@ -2907,6 +2976,8 @@ body {
   font-size: 11px;
   font-family: var(--font);
   cursor: pointer;
+  position: relative;
+  z-index: 1;
   transition: background var(--transition);
 }
 
@@ -3099,6 +3170,29 @@ body {
   opacity: 1;
 }
 
+.theme-group-subtitle {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  margin: 12px 0 6px;
+}
+
+.theme-group-subtitle:first-of-type {
+  margin-top: 0;
+}
+
+.theme-card.preferred {
+  border-color: var(--accent);
+  border-style: dashed;
+  opacity: 0.75;
+}
+
+.theme-follow-system {
+  margin-top: 12px;
+}
+
 .theme-actions {
   display: flex;
   gap: 8px;
@@ -3134,6 +3228,10 @@ body {
 
 .settings-btn-primary:hover {
   background: var(--accent-hover);
+}
+
+.theme-create-btn {
+  border-style: dashed;
 }
 
 /* ============================================================

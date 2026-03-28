@@ -23,7 +23,7 @@ function _lazyLoadWebview(viewName) {
 }
 
 export function switchView(viewName) {
-  const validViews = ['terminals', 'comm', 'tasks', 'knowledge', 'monitor', 'settings'];
+  const validViews = ['terminals', 'comm', 'tasks', 'knowledge', 'monitor', 'events', 'settings'];
   if (!validViews.includes(viewName)) return;
 
   state.activeView = viewName;
@@ -33,6 +33,7 @@ export function switchView(viewName) {
   dom.viewTasks?.classList.remove('active');
   dom.viewKnowledge?.classList.remove('active');
   dom.viewMonitor?.classList.remove('active');
+  dom.viewEvents?.classList.remove('active');
   dom.settingsView?.classList.remove('active');
   dom.tabBar.style.display = 'none';
 
@@ -71,6 +72,9 @@ export function switchView(viewName) {
     case 'monitor':
       dom.viewMonitor.classList.add('active');
       if (registry.startMonitorRefresh) registry.startMonitorRefresh();
+      break;
+    case 'events':
+      dom.viewEvents.classList.add('active');
       break;
     case 'settings':
       dom.settingsView.classList.add('active');
@@ -151,6 +155,69 @@ export function applySettings() {
   applyTheme(getSetting('themeId') || null);
 }
 
+// ---------------------------------------------------------------------------
+// Color contrast helpers for dashboard theme sync
+// ---------------------------------------------------------------------------
+
+function _hexToHsl(hex) {
+  hex = hex.replace('#', '');
+  if (hex.length === 3) hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
+  const r = parseInt(hex.slice(0, 2), 16) / 255;
+  const g = parseInt(hex.slice(2, 4), 16) / 255;
+  const b = parseInt(hex.slice(4, 6), 16) / 255;
+  const max = Math.max(r, g, b),
+    min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+  if (max === min) return { h: 0, s: 0, l };
+  const d = max - min;
+  const s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+  let h;
+  if (max === r) h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
+  else if (max === g) h = ((b - r) / d + 2) / 6;
+  else h = ((r - g) / d + 4) / 6;
+  return { h, s, l };
+}
+
+function _hslToHex(h, s, l) {
+  function hue2rgb(p, q, t) {
+    if (t < 0) t += 1;
+    if (t > 1) t -= 1;
+    if (t < 1 / 6) return p + (q - p) * 6 * t;
+    if (t < 1 / 2) return q;
+    if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+    return p;
+  }
+  let r, g, b;
+  if (s === 0) {
+    r = g = b = l;
+  } else {
+    const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+    const p = 2 * l - q;
+    r = hue2rgb(p, q, h + 1 / 3);
+    g = hue2rgb(p, q, h);
+    b = hue2rgb(p, q, h - 1 / 3);
+  }
+  const toHex = (v) =>
+    Math.round(v * 255)
+      .toString(16)
+      .padStart(2, '0');
+  return '#' + toHex(r) + toHex(g) + toHex(b);
+}
+
+function _ensureMinLightness(color, minL) {
+  if (!color || !color.startsWith('#')) return color;
+  const hsl = _hexToHsl(color);
+  if (hsl.l < minL) return _hslToHex(hsl.h, hsl.s, minL);
+  return color;
+}
+
+function _ensureMaxLightness(color, maxL) {
+  if (!color || !color.startsWith('#')) return color;
+  const hsl = _hexToHsl(color);
+  if (hsl.l > maxL) return _hslToHex(hsl.h, hsl.s, maxL);
+  return color;
+}
+
 export function applyTheme(themeId) {
   const themeObj = typeof getThemeById === 'function' ? getThemeById(themeId) : null;
   const baseType = themeObj ? themeObj.type || 'dark' : 'dark';
@@ -169,7 +236,42 @@ export function applyTheme(themeId) {
   }
 
   const safeTheme = baseType === 'dark' ? 'dark' : 'light';
-  const themeScript = `(function(t) {
+
+  // Build full color payload from theme object for dashboard sync
+  const themeColors = {};
+  if (themeObj && themeObj.colors) {
+    const c = themeObj.colors;
+    themeColors.bg = c.background;
+    themeColors.bgSurface = c.surface;
+    themeColors.bgElevated = c.surfaceHover || c.surface;
+    themeColors.bgHover = c.surfaceHover || c.surface;
+    themeColors.border = c.border;
+    themeColors.text = c.text;
+    themeColors.textSecondary = c.textSecondary || c.text;
+    themeColors.textMuted = c.textSecondary;
+    themeColors.textDim = c.textSecondary;
+    themeColors.accent = c.accent || c.primary;
+    themeColors.accentHover = c.accentHover || c.accent || c.primary;
+    themeColors.accentDim = c.primary;
+    themeColors.accentSolid = c.primary;
+  }
+  themeColors.isDark = baseType === 'dark';
+
+  if (baseType === 'dark') {
+    if (themeColors.text) themeColors.text = _ensureMinLightness(themeColors.text, 0.7);
+    if (themeColors.textSecondary) themeColors.textSecondary = _ensureMinLightness(themeColors.textSecondary, 0.55);
+    if (themeColors.textMuted) themeColors.textMuted = _ensureMinLightness(themeColors.textMuted, 0.45);
+    if (themeColors.textDim) themeColors.textDim = _ensureMinLightness(themeColors.textDim, 0.45);
+    themeColors.shadow = '0 2px 8px rgba(0,0,0,0.4)';
+  } else {
+    if (themeColors.text) themeColors.text = _ensureMaxLightness(themeColors.text, 0.3);
+    if (themeColors.textSecondary) themeColors.textSecondary = _ensureMaxLightness(themeColors.textSecondary, 0.4);
+    if (themeColors.textMuted) themeColors.textMuted = _ensureMaxLightness(themeColors.textMuted, 0.5);
+    if (themeColors.textDim) themeColors.textDim = _ensureMaxLightness(themeColors.textDim, 0.5);
+    themeColors.shadow = '0 2px 8px rgba(0,0,0,0.1)';
+  }
+
+  const themeScript = `(function(t, colors) {
     window.__agentDeskLastSyncedTheme = t;
     document.body.className = document.body.className.replace(/theme-\\w+/, '') + ' theme-' + t;
     document.documentElement.setAttribute('data-theme', t);
@@ -178,7 +280,8 @@ export function applyTheme(themeId) {
     localStorage.setItem('agent-knowledge-theme', t);
     var icon = document.querySelector('.theme-icon');
     if (icon) icon.textContent = t === 'dark' ? 'light_mode' : 'dark_mode';
-  })(${JSON.stringify(safeTheme)})`;
+    window.postMessage({ type: 'theme-sync', colors: colors }, '*');
+  })(${JSON.stringify(safeTheme)}, ${JSON.stringify(themeColors)})`;
   const webviews = document.querySelectorAll('webview');
   webviews.forEach((wv) => {
     try {
@@ -188,26 +291,11 @@ export function applyTheme(themeId) {
     }
   });
 
-  const toggleIcon = document.querySelector('#btn-theme-toggle .material-symbols-outlined');
-  if (toggleIcon) toggleIcon.textContent = baseType === 'dark' ? 'light_mode' : 'dark_mode';
-
   const newTermTheme = getTermTheme(themeId);
   const newFontWeight = getTermFontWeight(themeId);
   for (const [, ts] of state.terminals) {
     ts.term.options.theme = newTermTheme;
     ts.term.options.fontWeight = newFontWeight;
-  }
-}
-
-export function toggleTheme() {
-  const allThemes = typeof getAllThemes === 'function' ? getAllThemes() : [];
-  const currentId = getSetting('themeId') || 'default-dark';
-  const idx = allThemes.findIndex((t) => t.id === currentId);
-  const next = allThemes[(idx + 1) % allThemes.length];
-  if (next) {
-    setSetting('themeId', next.id);
-    setSetting('theme', next.type || 'dark');
-    applyTheme(next.id);
   }
 }
 
@@ -230,6 +318,8 @@ export function setupSidebar() {
       registry.showContextMenu(e.clientX, e.clientY, [
         { label: 'Close Idle Terminals', icon: 'delete_sweep', action: () => registry.closeIdleTerminals() },
         { label: 'Auto-Arrange', icon: 'grid_view', action: () => registry.reorderTerminals() },
+        { type: 'separator' },
+        { label: 'Save Workspace', icon: 'save', action: () => registry.showWorkspaceSaveDialog() },
       ]);
     });
   }
@@ -244,7 +334,6 @@ export function setupClaudeButton() {
 }
 
 export function setupThemeToggle() {
-  document.getElementById('btn-theme-toggle')?.addEventListener('click', toggleTheme);
   const webviews = document.querySelectorAll('webview');
   webviews.forEach((wv) => {
     wv.addEventListener('did-finish-load', () => {
@@ -294,6 +383,76 @@ export function setupThemeToggle() {
         }
       }
     });
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Theme Toggle Button (sidebar) + OS auto-detect
+// ---------------------------------------------------------------------------
+
+function _updateThemeToggleIcon() {
+  const btn = document.getElementById('btn-theme-toggle');
+  if (!btn) return;
+  const currentTheme = typeof getThemeById === 'function' ? getThemeById(getSetting('themeId')) : null;
+  const isDark = !currentTheme || currentTheme.type === 'dark';
+  const icon = btn.querySelector('.material-symbols-outlined');
+  if (icon) icon.textContent = isDark ? 'light_mode' : 'dark_mode';
+}
+
+export function setupThemeToggleButton() {
+  const btn = document.getElementById('btn-theme-toggle');
+  if (!btn) return;
+
+  _updateThemeToggleIcon();
+
+  btn.addEventListener('click', () => {
+    const currentTheme = typeof getThemeById === 'function' ? getThemeById(getSetting('themeId')) : null;
+    const isDark = !currentTheme || currentTheme.type === 'dark';
+
+    const targetId = isDark
+      ? getSetting('preferredLightTheme') || 'default-light'
+      : getSetting('preferredDarkTheme') || 'default-dark';
+
+    setSetting('themeId', targetId);
+    const targetTheme = typeof getThemeById === 'function' ? getThemeById(targetId) : null;
+    setSetting('theme', targetTheme ? targetTheme.type : 'dark');
+    applyTheme(targetId);
+    _updateThemeToggleIcon();
+  });
+
+  // Listen for theme changes from other sources (settings, webview sync)
+  window.addEventListener('settings-changed', () => _updateThemeToggleIcon());
+}
+
+// OS theme auto-detect
+export function setupSystemThemeListener() {
+  const mq = window.matchMedia('(prefers-color-scheme: dark)');
+
+  function onSystemThemeChange(e) {
+    if (getSetting('followSystemTheme') !== true) return;
+    const targetId = e.matches
+      ? getSetting('preferredDarkTheme') || 'default-dark'
+      : getSetting('preferredLightTheme') || 'default-light';
+
+    setSetting('themeId', targetId);
+    const targetTheme = typeof getThemeById === 'function' ? getThemeById(targetId) : null;
+    setSetting('theme', targetTheme ? targetTheme.type : 'dark');
+    applyTheme(targetId);
+    _updateThemeToggleIcon();
+  }
+
+  mq.addEventListener('change', onSystemThemeChange);
+
+  // Apply on startup if followSystemTheme is enabled
+  if (getSetting('followSystemTheme') === true) {
+    onSystemThemeChange(mq);
+  }
+
+  // Re-enable listener when the setting changes
+  window.addEventListener('follow-system-theme-changed', (e) => {
+    if (e.detail === true) {
+      onSystemThemeChange(mq);
+    }
   });
 }
 
@@ -421,6 +580,7 @@ export function updateStatusBar() {
         tasks: 'Tasks',
         knowledge: 'Agent Knowledge',
         monitor: 'Agent Monitor',
+        events: 'Event Stream',
         settings: 'Settings',
       };
       left.textContent = viewNames[state.activeView] || state.activeView;
@@ -439,6 +599,13 @@ export function updateStatusBar() {
 
   const right = dom.statusRight;
   if (right) {
+    // Use a dedicated span for terminal info to avoid clobbering widget children
+    let infoSpan = right.querySelector('.status-right-info');
+    if (!infoSpan) {
+      infoSpan = document.createElement('span');
+      infoSpan.className = 'status-right-info';
+      right.appendChild(infoSpan);
+    }
     if (state.activeView === 'terminals' && state.activeTerminalId) {
       const ts = state.terminals.get(state.activeTerminalId);
       if (ts) {
@@ -449,12 +616,12 @@ export function updateStatusBar() {
             rightText += exitCode === 0 ? ' \u2714' : ' \u2718 ' + exitCode;
           }
         }
-        right.textContent = rightText;
+        infoSpan.textContent = rightText;
       } else {
-        right.textContent = '';
+        infoSpan.textContent = '';
       }
     } else {
-      right.textContent = '';
+      infoSpan.textContent = '';
     }
   }
 }
@@ -479,14 +646,9 @@ export function setupHelpButton() {
 export function setupEventStream() {
   eventStream.init();
   const panel = eventStream.getPanel();
-  const workspace = document.getElementById('workspace');
-  if (workspace && panel) {
-    workspace.appendChild(panel);
-  }
-
-  const btn = document.getElementById('btn-event-stream');
-  if (btn) {
-    btn.addEventListener('click', () => eventStream.toggle());
+  const container = document.getElementById('view-events');
+  if (container && panel) {
+    container.appendChild(panel);
   }
 }
 
@@ -599,6 +761,8 @@ export function setupNewTabButton() {
       { type: 'separator' },
       { label: 'Close Idle Terminals', icon: 'delete_sweep', action: () => registry.closeIdleTerminals() },
       { label: 'Auto-Arrange', icon: 'grid_view', action: () => registry.reorderTerminals() },
+      { type: 'separator' },
+      { label: 'Save Workspace', icon: 'save', action: () => registry.showWorkspaceSaveDialog() },
     );
     registry.showContextMenu(e.clientX, e.clientY, items);
   });
@@ -692,12 +856,13 @@ registry.switchView = switchView;
 registry.updateSidebar = updateSidebar;
 registry.applySettings = applySettings;
 registry.applyTheme = applyTheme;
-registry.toggleTheme = toggleTheme;
 registry.updateStatusBar = updateStatusBar;
 registry.setupWebviewStates = setupWebviewStates;
 registry.setupSidebar = setupSidebar;
 registry.setupClaudeButton = setupClaudeButton;
 registry.setupThemeToggle = setupThemeToggle;
+registry.setupThemeToggleButton = setupThemeToggleButton;
+registry.setupSystemThemeListener = setupSystemThemeListener;
 registry.setupWindowControls = setupWindowControls;
 registry.setupHelpButton = setupHelpButton;
 registry.setupEventStream = setupEventStream;

@@ -12,6 +12,7 @@ let _cleanupConfigWatch = null;
 const DEFAULT_PROFILES = [
   { id: 'default-shell', name: 'Default Shell', command: '', args: [], cwd: '', icon: 'terminal', builtin: true },
   { id: 'claude', name: 'Claude', command: 'claude', args: [], cwd: '', icon: 'smart_toy', builtin: true },
+  { id: 'opencode', name: 'OpenCode', command: 'opencode', args: [], cwd: '', icon: 'code', builtin: true },
 ];
 
 const PROFILE_ICON_OPTIONS = [
@@ -65,6 +66,9 @@ const DEFAULTS = {
   desktopNotifications: true,
   // Theme
   theme: 'dark',
+  preferredDarkTheme: 'default-dark',
+  preferredLightTheme: 'default-light',
+  followSystemTheme: false,
 };
 
 let _settings = null;
@@ -170,7 +174,12 @@ const SECTIONS = [
     title: 'Terminal',
     icon: 'terminal',
     fields: [
-      { key: 'defaultShell', label: 'Default Shell', type: 'select', options: ['PowerShell', 'CMD', 'Bash', 'Claude'] },
+      {
+        key: 'defaultShell',
+        label: 'Default Shell',
+        type: 'select',
+        options: ['PowerShell', 'CMD', 'Bash', 'Claude', 'OpenCode'],
+      },
       { key: 'defaultTerminalCwd', label: 'Default Terminal Path', type: 'directory', placeholder: 'C:\\Projects' },
       { key: 'fontSize', label: 'Font Size', type: 'number', min: 10, max: 24, step: 1 },
       { key: 'fontFamily', label: 'Font Family', type: 'text' },
@@ -240,11 +249,6 @@ const SECTIONS = [
   {
     title: 'Keyboard Shortcuts',
     icon: 'keyboard',
-    custom: true,
-  },
-  {
-    title: 'Shell Integration',
-    icon: 'terminal',
     custom: true,
   },
 ];
@@ -785,68 +789,85 @@ function _parseArgs(str) {
 // Themes Section
 // -----------------------------------------------------------------------------
 
+function _buildThemeCard(theme, currentId, prefDarkId, prefLightId) {
+  const card = document.createElement('div');
+  const isActive = theme.id === currentId;
+  const isPreferred =
+    (theme.type === 'dark' && theme.id === prefDarkId) || (theme.type === 'light' && theme.id === prefLightId);
+  card.className = 'theme-card' + (isActive ? ' active' : '') + (isPreferred && !isActive ? ' preferred' : '');
+
+  const swatch = document.createElement('div');
+  swatch.className = 'theme-swatch';
+  swatch.style.background = theme.colors.background;
+  swatch.style.borderColor = theme.colors.border;
+
+  const colors = document.createElement('div');
+  colors.className = 'theme-swatch-colors';
+  const tc = theme.colors.terminal || {};
+  ['red', 'green', 'blue', 'yellow', 'magenta', 'cyan'].forEach((c) => {
+    const dot = document.createElement('span');
+    dot.className = 'theme-color-dot';
+    dot.style.background = tc[c] || '#888';
+    colors.appendChild(dot);
+  });
+  swatch.appendChild(colors);
+
+  const textPreview = document.createElement('div');
+  textPreview.className = 'theme-swatch-text';
+  textPreview.style.color = theme.colors.text;
+  textPreview.textContent = 'Aa';
+  swatch.appendChild(textPreview);
+
+  const accentBar = document.createElement('div');
+  accentBar.className = 'theme-swatch-accent';
+  accentBar.style.background = theme.colors.accent || theme.colors.primary;
+  swatch.appendChild(accentBar);
+
+  const name = document.createElement('div');
+  name.className = 'theme-card-name';
+  name.textContent = theme.name;
+
+  card.appendChild(swatch);
+  card.appendChild(name);
+
+  if (!theme.builtin) {
+    const delBtn = document.createElement('button');
+    delBtn.className = 'theme-card-delete';
+    delBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size:14px">close</span>';
+    delBtn.title = 'Delete theme';
+    card.appendChild(delBtn);
+  }
+
+  return card;
+}
+
 function _renderThemesSection(sec, container) {
   const allThemes = typeof getAllThemes === 'function' ? getAllThemes() : [];
   const currentId = _settings.themeId || 'default-dark';
+  const prefDarkId = _settings.preferredDarkTheme || 'default-dark';
+  const prefLightId = _settings.preferredLightTheme || 'default-light';
 
-  const grid = document.createElement('div');
-  grid.className = 'theme-grid';
+  const darkThemes = allThemes.filter((t) => t.type === 'dark');
+  const lightThemes = allThemes.filter((t) => t.type === 'light');
 
-  allThemes.forEach((theme) => {
-    const card = document.createElement('div');
-    card.className = 'theme-card' + (theme.id === currentId ? ' active' : '');
+  // Dark Themes group
+  const darkSubtitle = document.createElement('div');
+  darkSubtitle.className = 'theme-group-subtitle';
+  darkSubtitle.textContent = 'Dark Themes';
+  sec.appendChild(darkSubtitle);
 
-    const swatch = document.createElement('div');
-    swatch.className = 'theme-swatch';
-    swatch.style.background = theme.colors.background;
-    swatch.style.borderColor = theme.colors.border;
-
-    const colors = document.createElement('div');
-    colors.className = 'theme-swatch-colors';
-    const tc = theme.colors.terminal || {};
-    ['red', 'green', 'blue', 'yellow', 'magenta', 'cyan'].forEach((c) => {
-      const dot = document.createElement('span');
-      dot.className = 'theme-color-dot';
-      dot.style.background = tc[c] || '#888';
-      colors.appendChild(dot);
-    });
-    swatch.appendChild(colors);
-
-    const textPreview = document.createElement('div');
-    textPreview.className = 'theme-swatch-text';
-    textPreview.style.color = theme.colors.text;
-    textPreview.textContent = 'Aa';
-    swatch.appendChild(textPreview);
-
-    const accentBar = document.createElement('div');
-    accentBar.className = 'theme-swatch-accent';
-    accentBar.style.background = theme.colors.accent || theme.colors.primary;
-    swatch.appendChild(accentBar);
-
-    const name = document.createElement('div');
-    name.className = 'theme-card-name';
-    name.textContent = theme.name;
-
-    const typeBadge = document.createElement('span');
-    typeBadge.className = 'theme-type-badge';
-    typeBadge.textContent = theme.type;
-    name.appendChild(typeBadge);
-
-    card.appendChild(swatch);
-    card.appendChild(name);
-
+  const darkGrid = document.createElement('div');
+  darkGrid.className = 'theme-grid';
+  darkThemes.forEach((theme) => {
+    const card = _buildThemeCard(theme, currentId, prefDarkId, prefLightId);
     card.addEventListener('click', () => {
       field('themeId', theme.id);
-      field('theme', theme.type || 'dark');
-      grid.querySelectorAll('.theme-card').forEach((c) => c.classList.remove('active'));
-      card.classList.add('active');
+      field('theme', 'dark');
+      field('preferredDarkTheme', theme.id);
+      _renderThemesSection_refresh(sec, container);
     });
-
-    if (!theme.builtin) {
-      const delBtn = document.createElement('button');
-      delBtn.className = 'theme-card-delete';
-      delBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size:14px">close</span>';
-      delBtn.title = 'Delete theme';
+    const delBtn = card.querySelector('.theme-card-delete');
+    if (delBtn) {
       delBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         if (typeof deleteCustomTheme === 'function') deleteCustomTheme(theme.id);
@@ -854,16 +875,70 @@ function _renderThemesSection(sec, container) {
           field('themeId', 'default-dark');
           field('theme', 'dark');
         }
+        if (prefDarkId === theme.id) field('preferredDarkTheme', 'default-dark');
         initSettings(container);
       });
-      card.appendChild(delBtn);
     }
-
-    grid.appendChild(card);
+    darkGrid.appendChild(card);
   });
+  sec.appendChild(darkGrid);
 
-  sec.appendChild(grid);
+  // Light Themes group
+  const lightSubtitle = document.createElement('div');
+  lightSubtitle.className = 'theme-group-subtitle';
+  lightSubtitle.textContent = 'Light Themes';
+  sec.appendChild(lightSubtitle);
 
+  const lightGrid = document.createElement('div');
+  lightGrid.className = 'theme-grid';
+  lightThemes.forEach((theme) => {
+    const card = _buildThemeCard(theme, currentId, prefDarkId, prefLightId);
+    card.addEventListener('click', () => {
+      field('themeId', theme.id);
+      field('theme', 'light');
+      field('preferredLightTheme', theme.id);
+      _renderThemesSection_refresh(sec, container);
+    });
+    const delBtn = card.querySelector('.theme-card-delete');
+    if (delBtn) {
+      delBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (typeof deleteCustomTheme === 'function') deleteCustomTheme(theme.id);
+        if (currentId === theme.id) {
+          field('themeId', 'default-light');
+          field('theme', 'light');
+        }
+        if (prefLightId === theme.id) field('preferredLightTheme', 'default-light');
+        initSettings(container);
+      });
+    }
+    lightGrid.appendChild(card);
+  });
+  sec.appendChild(lightGrid);
+
+  // Follow System Theme checkbox
+  const sysRow = document.createElement('div');
+  sysRow.className = 'settings-field theme-follow-system';
+  const sysLabel = document.createElement('label');
+  sysLabel.textContent = 'Follow System Theme';
+  const sysCheck = document.createElement('input');
+  sysCheck.type = 'checkbox';
+  sysCheck.checked = _settings.followSystemTheme === true;
+  sysCheck.addEventListener('change', () => {
+    field('followSystemTheme', sysCheck.checked);
+    window.dispatchEvent(new CustomEvent('follow-system-theme-changed', { detail: sysCheck.checked }));
+  });
+  sysRow.appendChild(sysLabel);
+  sysRow.appendChild(sysCheck);
+  sec.appendChild(sysRow);
+
+  const hint = document.createElement('div');
+  hint.style.cssText = 'font-size:12px;color:var(--text-muted);margin:4px 0 12px;padding:0 4px';
+  hint.textContent =
+    'When enabled, the app auto-switches between your preferred light and dark themes based on the OS setting.';
+  sec.appendChild(hint);
+
+  // Action buttons
   const actions = document.createElement('div');
   actions.className = 'theme-actions';
 
@@ -875,8 +950,138 @@ function _renderThemesSection(sec, container) {
     _showThemeEditor(sec, container, currentId);
   });
 
+  const createBtn = document.createElement('button');
+  createBtn.className = 'settings-btn theme-create-btn';
+  createBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px">add</span> Create New Theme';
+  createBtn.addEventListener('click', () => {
+    _showCreateThemeDialog(sec, container, currentId);
+  });
+
   actions.appendChild(customizeBtn);
+  actions.appendChild(createBtn);
   sec.appendChild(actions);
+}
+
+function _renderThemesSection_refresh(sec, container) {
+  const header = sec.querySelector('.settings-section-header');
+  while (sec.lastChild && sec.lastChild !== header) {
+    sec.removeChild(sec.lastChild);
+  }
+  _renderThemesSection(sec, container);
+}
+
+function _showCreateThemeDialog(sec, container, baseThemeId) {
+  const overlay = document.createElement('div');
+  overlay.className = 'theme-import-overlay';
+
+  const dialog = document.createElement('div');
+  dialog.className = 'theme-editor-dialog';
+  dialog.style.maxWidth = '360px';
+  dialog.innerHTML = '<h3>Create New Theme</h3>';
+
+  const hint = document.createElement('p');
+  hint.style.cssText = 'font-size:12px;color:var(--text-muted);margin:0 0 12px';
+  hint.textContent = 'Enter a name for your new theme. It will be based on the currently active theme.';
+  dialog.appendChild(hint);
+
+  const nameRow = document.createElement('div');
+  nameRow.className = 'theme-editor-field';
+  const nameLabel = document.createElement('label');
+  nameLabel.textContent = 'Theme Name';
+  const nameInput = document.createElement('input');
+  nameInput.type = 'text';
+  nameInput.placeholder = 'My Custom Theme';
+  nameInput.style.cssText =
+    'flex:1;padding:6px 8px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;font-size:13px';
+  nameRow.appendChild(nameLabel);
+  nameRow.appendChild(nameInput);
+  dialog.appendChild(nameRow);
+
+  const typeRow = document.createElement('div');
+  typeRow.className = 'theme-editor-field';
+  const typeLabel = document.createElement('label');
+  typeLabel.textContent = 'Type';
+  const typeToggle = document.createElement('div');
+  typeToggle.style.cssText = 'display:flex;gap:4px;flex:1';
+  const baseType = typeof getThemeById === 'function' ? getThemeById(baseThemeId)?.type || 'dark' : 'dark';
+  let selectedType = baseType;
+  for (const t of ['dark', 'light']) {
+    const btn = document.createElement('button');
+    btn.className = 'settings-btn' + (t === selectedType ? ' settings-btn-primary' : '');
+    btn.textContent = t === 'dark' ? 'Dark' : 'Light';
+    btn.style.cssText = 'flex:1;padding:6px 0;font-size:12px;text-transform:uppercase';
+    btn.dataset.type = t;
+    btn.addEventListener('click', () => {
+      selectedType = t;
+      typeToggle.querySelectorAll('button').forEach((b) => {
+        b.classList.toggle('settings-btn-primary', b.dataset.type === t);
+      });
+    });
+    typeToggle.appendChild(btn);
+  }
+  typeRow.appendChild(typeLabel);
+  typeRow.appendChild(typeToggle);
+  dialog.appendChild(typeRow);
+
+  const btnRow = document.createElement('div');
+  btnRow.className = 'theme-import-buttons';
+
+  const cancelBtn = document.createElement('button');
+  cancelBtn.className = 'settings-btn';
+  cancelBtn.textContent = 'Cancel';
+  cancelBtn.addEventListener('click', () => overlay.remove());
+
+  const createBtnConfirm = document.createElement('button');
+  createBtnConfirm.className = 'settings-btn settings-btn-primary';
+  createBtnConfirm.textContent = 'Create & Customize';
+  createBtnConfirm.addEventListener('click', () => {
+    const themeName = nameInput.value.trim();
+    if (!themeName) {
+      nameInput.style.borderColor = '#d45050';
+      nameInput.focus();
+      return;
+    }
+
+    const baseTheme = typeof getThemeById === 'function' ? getThemeById(baseThemeId) : null;
+    if (!baseTheme) return;
+
+    const newId =
+      'custom-' +
+      themeName
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-|-$/g, '') +
+      '-' +
+      Date.now();
+    const newTheme = {
+      id: newId,
+      name: themeName,
+      type: selectedType,
+      builtin: false,
+      colors: JSON.parse(JSON.stringify(baseTheme.colors)),
+    };
+
+    if (typeof saveCustomTheme === 'function') saveCustomTheme(newTheme);
+    field('themeId', newTheme.id);
+    field('theme', newTheme.type);
+
+    overlay.remove();
+
+    // Re-render themes section then open editor for the new theme
+    _renderThemesSection(sec, container);
+    _showThemeEditor(sec, container, newTheme.id);
+  });
+
+  btnRow.appendChild(cancelBtn);
+  btnRow.appendChild(createBtnConfirm);
+  dialog.appendChild(btnRow);
+
+  overlay.appendChild(dialog);
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) overlay.remove();
+  });
+  nameInput.focus();
 }
 
 function _showThemeEditor(sec, container, baseThemeId) {
@@ -1736,8 +1941,6 @@ async function initSettings(container) {
       _renderWorkspacesSection(sec);
     } else if (section.custom && section.title === 'Keyboard Shortcuts') {
       _renderKeybindingsSection(sec);
-    } else if (section.custom && section.title === 'Shell Integration') {
-      _renderShellIntegrationSection(sec);
     } else if (section.fields) {
       for (const f of section.fields) {
         sec.appendChild(renderField(f, settings));
