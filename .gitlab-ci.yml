@@ -1,0 +1,118 @@
+stages:
+  - check
+  - build
+  - publish
+
+variables:
+  npm_config_cache: '$CI_PROJECT_DIR/.npm'
+
+.node-cache:
+  cache:
+    key: '${CI_COMMIT_REF_SLUG}-node'
+    paths:
+      - .npm/
+      - node_modules/
+
+# ─── Stage: check ───
+
+lint-and-test:
+  stage: check
+  image: node:22
+  extends: .node-cache
+  script:
+    - npm ci
+    - npm run build
+    - npx prettier --check .
+    - npx eslint src/
+    - npm test
+  rules:
+    - if: $CI_COMMIT_BRANCH
+
+# ─── Stage: build ───
+
+build-linux:
+  stage: build
+  image: electronuserland/builder:20
+  extends: .node-cache
+  script:
+    - npm ci
+    - npm run build
+    - npx electron-builder --linux --publish never
+  artifacts:
+    name: 'agent-desk-linux-${CI_COMMIT_SHORT_SHA}'
+    paths:
+      - release/*.AppImage
+      - release/*.deb
+      - release/*.yml
+    expire_in: 30 days
+  rules:
+    - if: $CI_COMMIT_TAG
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == "web"
+
+build-windows:
+  stage: build
+  image: electronuserland/builder:wine
+  extends: .node-cache
+  script:
+    - npm ci
+    - npm run build
+    - npx electron-builder --win --config.npmRebuild=false --publish never
+  artifacts:
+    name: 'agent-desk-windows-${CI_COMMIT_SHORT_SHA}'
+    paths:
+      - release/*.exe
+      - release/*.yml
+    expire_in: 30 days
+  rules:
+    - if: $CI_COMMIT_TAG
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == "web"
+
+build-mac:
+  stage: build
+  image: electronuserland/builder:wine
+  extends: .node-cache
+  script:
+    - npm ci
+    - npm run build
+    - npx electron-builder --mac --publish never || echo "macOS cross-compile failed (expected without Apple cert)"
+  artifacts:
+    name: 'agent-desk-mac-${CI_COMMIT_SHORT_SHA}'
+    paths:
+      - release/*.dmg
+      - release/*.zip
+      - release/*.yml
+    expire_in: 30 days
+  allow_failure: true
+  rules:
+    - if: $CI_COMMIT_TAG
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == "web"
+
+# ─── Stage: publish (upload to GitLab Package Registry) ───
+
+publish-packages:
+  stage: publish
+  image: curlimages/curl:latest
+  dependencies:
+    - build-linux
+    - build-windows
+  script:
+    - VERSION=$(cat package.json | grep '"version"' | head -1 | sed 's/.*"version".*"\(.*\)".*/\1/')
+    - echo "Publishing v${VERSION} from ${CI_COMMIT_SHORT_SHA}"
+    - |
+      for f in release/*.AppImage release/*.deb release/*.exe; do
+        if [ -f "$f" ]; then
+          FILENAME=$(basename "$f")
+          echo "Uploading ${FILENAME}..."
+          curl --header "JOB-TOKEN: ${CI_JOB_TOKEN}" \
+               --upload-file "$f" \
+               "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/agent-desk/${VERSION}/${FILENAME}"
+          echo ""
+        fi
+      done
+  rules:
+    - if: $CI_COMMIT_TAG
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == "web"
