@@ -21,9 +21,7 @@ const TASKS_POLL_INTERVAL = 10000;
 // ---------------------------------------------------------------------------
 
 let _cachedTasks = [];
-let _cachedCommAgents = [];
 let _tasksLastFetch = 0;
-let _commLastFetch = 0;
 let _refreshTimer = null;
 
 // ---------------------------------------------------------------------------
@@ -46,24 +44,6 @@ async function _fetchTasks() {
     /* service unavailable or timed out */
   }
   return _cachedTasks;
-}
-
-async function _fetchCommAgents() {
-  const now = Date.now();
-  if (now - _commLastFetch < TASKS_POLL_INTERVAL && _cachedCommAgents.length > 0) {
-    return _cachedCommAgents;
-  }
-  try {
-    const res = await fetch('http://localhost:3421/api/agents', { signal: AbortSignal.timeout(5000) });
-    if (res.ok) {
-      const data = await res.json();
-      _cachedCommAgents = Array.isArray(data) ? data : [];
-      _commLastFetch = now;
-    }
-  } catch (_e) {
-    /* service unavailable or timed out */
-  }
-  return _cachedCommAgents;
 }
 
 // ---------------------------------------------------------------------------
@@ -174,9 +154,9 @@ function _buildAgentCards() {
   for (const [id, ts] of state.terminals) {
     const agentInfo = typeof agentParser !== 'undefined' ? agentParser.getInfo(id) : null;
     const isAgent = agentInfo ? agentInfo.isAgent : false;
+    const knownAgentProfiles = new Set(['claude', 'opencode']);
     const isAgentProfile =
-      ts._profileName === 'Claude' ||
-      ts._profileName === 'OpenCode' ||
+      knownAgentProfiles.has((ts._profileName || '').toLowerCase()) ||
       (ts._command && /claude|opencode/i.test(ts._command));
     if (!isAgent && !isAgentProfile) continue;
     const agentName = agentInfo?.agentName || ts._profileName || _friendlyTitle(ts.title) || 'Terminal';
@@ -250,7 +230,7 @@ function render() {
     summary +
     '</span>' +
     '</div>' +
-    '<button class="agent-monitor-launch-btn" title="Launch new Claude agent">' +
+    '<button class="agent-monitor-launch-btn" title="Launch Agent">' +
     '<span class="material-symbols-outlined">add</span> Launch Agent' +
     '</button>';
 
@@ -259,12 +239,13 @@ function render() {
     launchBtn.onclick = () => {
       registry.switchView('terminals');
       const profiles = typeof getProfiles === 'function' ? getProfiles() : [];
-      const claudeProfile = profiles.find((p) => p.id === 'claude') || {
-        command: 'claude',
-        icon: 'smart_toy',
-        name: 'Claude',
-      };
-      registry.createTerminalFromProfile(claudeProfile);
+      const shellIds = new Set(['default-shell']);
+      const agentProfile = profiles.find((p) => !shellIds.has(p.id) && p.command && p.command !== '') || profiles[0];
+      if (agentProfile) {
+        registry.createTerminalFromProfile(agentProfile);
+      } else {
+        registry.createTerminal();
+      }
     };
   }
 
@@ -281,7 +262,7 @@ function render() {
       '<div class="agent-monitor-empty">' +
       '<span class="material-symbols-outlined agent-monitor-empty-icon">hub</span>' +
       '<p>No agents detected.</p>' +
-      '<p class="agent-monitor-empty-hint">Launch Claude Code terminals to see agents here.</p>' +
+      '<p class="agent-monitor-empty-hint">Launch AI agent terminals to see agents here.</p>' +
       '</div>';
     return;
   }
@@ -372,9 +353,7 @@ function _escapeHtml(str) {
 // ---------------------------------------------------------------------------
 
 export function init() {
-  // Initial fetch
   _fetchTasks();
-  _fetchCommAgents();
 }
 
 export function startRefresh() {

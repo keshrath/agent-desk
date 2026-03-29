@@ -18,13 +18,14 @@ function _registerKeybindingActions() {
       registry.createTerminal();
     }
   });
-  km.registerAction('newClaude', () => {
+  km.registerAction('newAgent', () => {
     const profiles = typeof getProfiles === 'function' ? getProfiles() : [];
-    const claudeProfile = profiles.find((p) => p.id === 'claude');
-    if (claudeProfile) {
-      registry.createTerminalFromProfile(claudeProfile);
+    const shellIds = new Set(['default-shell']);
+    const agentProfile = profiles.find((p) => !shellIds.has(p.id) && p.command && p.command !== '');
+    if (agentProfile) {
+      registry.createTerminalFromProfile(agentProfile);
     } else {
-      registry.createTerminal({ command: 'claude' });
+      registry.createTerminal();
     }
   });
   km.registerAction('closeTerminal', () => {

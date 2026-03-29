@@ -1,8 +1,8 @@
 /**
- * comm-graph.spec.ts — Communication Graph
+ * comm-graph.spec.ts -- Communication Graph
  *
- * Tests the canvas-based agent communication graph panel,
- * open/close toggle, and empty state rendering.
+ * Tests the canvas-based agent communication graph panel:
+ * open, structure, toggle, close button, and destroy.
  */
 
 import { test, expect } from '@playwright/test';
@@ -27,59 +27,28 @@ test.afterEach(async ({}, testInfo) => {
   await screenshotOnFailure(window, testInfo);
 });
 
-// ── Panel Open/Close ────────────────────────────────────────────────
-
-test('showCommGraph function is available on registry', async () => {
-  const exists = await window.evaluate(() => {
-    const r = (window as any).__agentDeskRegistry;
-    return typeof r.showCommGraph === 'function';
-  });
-  expect(exists).toBe(true);
-});
-
-test('comm graph panel opens via registry', async () => {
+test('comm graph panel opens with header, canvas, and close button', async () => {
   await window.evaluate(() => {
-    const r = (window as any).__agentDeskRegistry;
-    if (r && r.showCommGraph) r.showCommGraph();
+    (window as any).__agentDeskRegistry.showCommGraph();
   });
   await window.waitForTimeout(500);
 
-  const panel = window.locator('.comm-graph-panel');
-  await expect(panel).toBeAttached();
-});
+  await expect(window.locator('.comm-graph-panel')).toBeAttached();
+  await expect(window.locator('.comm-graph-title')).toHaveText('Agent Communication');
+  await expect(window.locator('.comm-graph-close')).toBeAttached();
 
-test('comm graph panel has header with title', async () => {
-  const title = window.locator('.comm-graph-title');
-  await expect(title).toHaveText('Agent Communication');
-});
-
-test('comm graph panel has close button', async () => {
-  const closeBtn = window.locator('.comm-graph-close');
-  await expect(closeBtn).toBeAttached();
-});
-
-test('comm graph panel has canvas element', async () => {
-  const canvas = window.locator('.comm-graph-canvas');
-  await expect(canvas).toBeAttached();
-});
-
-test('canvas has dimensions set', async () => {
   const dimensions = await window.evaluate(() => {
     const canvas = document.querySelector('.comm-graph-canvas') as HTMLCanvasElement;
-    if (!canvas) return null;
-    return { width: canvas.width, height: canvas.height };
+    return canvas ? { width: canvas.width, height: canvas.height } : null;
   });
   expect(dimensions).not.toBeNull();
   expect(dimensions!.width).toBeGreaterThan(0);
   expect(dimensions!.height).toBeGreaterThan(0);
 });
 
-// ── Toggle Behavior ─────────────────────────────────────────────────
-
 test('calling showCommGraph again hides the panel', async () => {
   await window.evaluate(() => {
-    const r = (window as any).__agentDeskRegistry;
-    if (r && r.showCommGraph) r.showCommGraph();
+    (window as any).__agentDeskRegistry.showCommGraph();
   });
   await window.waitForTimeout(300);
 
@@ -92,13 +61,11 @@ test('calling showCommGraph again hides the panel', async () => {
 
 test('close button hides the panel', async () => {
   await window.evaluate(() => {
-    const r = (window as any).__agentDeskRegistry;
-    if (r && r.showCommGraph) r.showCommGraph();
+    (window as any).__agentDeskRegistry.showCommGraph();
   });
   await window.waitForTimeout(300);
 
-  const closeBtn = window.locator('.comm-graph-close');
-  await closeBtn.click();
+  await window.locator('.comm-graph-close').click();
   await window.waitForTimeout(300);
 
   const isHidden = await window.evaluate(() => {
@@ -108,16 +75,10 @@ test('close button hides the panel', async () => {
   expect(isHidden).toBe(true);
 });
 
-// ── Destroy ─────────────────────────────────────────────────────────
-
 test('destroyCommGraph removes the panel from DOM', async () => {
   await window.evaluate(() => {
-    const r = (window as any).__agentDeskRegistry;
-    if (r && r.destroyCommGraph) r.destroyCommGraph();
+    (window as any).__agentDeskRegistry.destroyCommGraph();
   });
   await window.waitForTimeout(200);
-
-  const panel = window.locator('.comm-graph-panel');
-  const count = await panel.count();
-  expect(count).toBe(0);
+  expect(await window.locator('.comm-graph-panel').count()).toBe(0);
 });

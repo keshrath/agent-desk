@@ -58,7 +58,10 @@ export function initDockview() {
 
           const termId = params.params && params.params.terminalId;
           const title = (params.params && params.params.title) || 'Terminal';
-          const paramIcon = (params.params && params.params.icon) || (title === 'Claude' ? 'smart_toy' : 'terminal');
+          const agentNames = new Set(['claude', 'opencode']);
+          const paramIcon =
+            (params.params && params.params.icon) ||
+            (agentNames.has((title || '').toLowerCase()) ? 'smart_toy' : 'terminal');
 
           const dot = document.createElement('span');
           dot.className = 'status-dot running';

@@ -228,7 +228,7 @@ function renderQuickStart(container) {
 
   const launchBtn = document.createElement('button');
   launchBtn.className = 'onboarding-btn onboarding-btn-primary';
-  launchBtn.textContent = 'Launch your first Claude session';
+  launchBtn.textContent = 'Launch your first agent';
   launchBtn.addEventListener('click', () => {
     completeOnboarding(true);
   });
@@ -272,7 +272,7 @@ function goToStep(step) {
   }
 }
 
-async function completeOnboarding(launchClaude) {
+async function completeOnboarding(launchAgent) {
   const dontShow = document.getElementById('onboarding-dont-show');
   const shouldRemember = dontShow ? dontShow.checked : true;
 
@@ -280,7 +280,6 @@ async function completeOnboarding(launchClaude) {
     await mergeConfig({ onboardingComplete: true });
   }
 
-  // Close overlay
   if (_overlay) {
     _overlay.classList.remove('visible');
     setTimeout(() => {
@@ -289,9 +288,15 @@ async function completeOnboarding(launchClaude) {
     }, 250);
   }
 
-  // Launch Claude if requested
-  if (launchClaude && registry.createTerminal) {
-    registry.createTerminal({ command: 'claude' });
+  if (launchAgent && registry.createTerminal) {
+    const profiles = typeof getProfiles === 'function' ? getProfiles() : [];
+    const shellIds = new Set(['default-shell']);
+    const agentProfile = profiles.find((p) => !shellIds.has(p.id) && p.command && p.command !== '');
+    if (agentProfile) {
+      registry.createTerminalFromProfile(agentProfile);
+    } else {
+      registry.createTerminal();
+    }
   }
 }
 

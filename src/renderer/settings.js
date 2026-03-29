@@ -39,7 +39,7 @@ const PROFILE_ICON_OPTIONS = [
 
 const DEFAULTS = {
   // Terminal
-  defaultShell: 'Claude',
+  defaultShell: 'PowerShell',
   defaultTerminalCwd: '',
   fontSize: 14,
   fontFamily: 'JetBrains Mono',
@@ -59,7 +59,7 @@ const DEFAULTS = {
   closeToTray: true,
   startOnLogin: false,
   newTerminalOnStartup: true,
-  defaultNewTerminalCommand: 'claude',
+  defaultNewTerminalCommand: '',
   // Notifications
   bellSound: false,
   bellVisual: true,
@@ -174,12 +174,6 @@ const SECTIONS = [
     title: 'Terminal',
     icon: 'terminal',
     fields: [
-      {
-        key: 'defaultShell',
-        label: 'Default Shell',
-        type: 'select',
-        options: ['PowerShell', 'CMD', 'Bash', 'Claude', 'OpenCode'],
-      },
       { key: 'defaultTerminalCwd', label: 'Default Terminal Path', type: 'directory', placeholder: 'C:\\Projects' },
       { key: 'fontSize', label: 'Font Size', type: 'number', min: 10, max: 24, step: 1 },
       { key: 'fontFamily', label: 'Font Family', type: 'text' },

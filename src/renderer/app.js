@@ -66,6 +66,10 @@ function setupGlobalListeners() {
 // -----------------------------------------------------------------------------
 
 function cleanup() {
+  if (_layoutAutoSaveInterval) {
+    clearInterval(_layoutAutoSaveInterval);
+    _layoutAutoSaveInterval = null;
+  }
   if (state._cleanupOnData) {
     state._cleanupOnData();
     state._cleanupOnData = null;
@@ -77,6 +81,9 @@ function cleanup() {
   if (state._cleanupOnAction) {
     state._cleanupOnAction();
     state._cleanupOnAction = null;
+  }
+  if (registry._stopTaskBadgePolling) {
+    registry._stopTaskBadgePolling();
   }
   for (const [, ts] of state.terminals) {
     if (ts.resizeObserver) {
@@ -200,10 +207,12 @@ async function createDefaultTerminal() {
   if (profile) {
     await registry.createTerminalFromProfile(profile);
   } else {
-    const defaultCmd = getSetting('defaultNewTerminalCommand') || 'claude';
-    await registry.createTerminal({ command: defaultCmd });
+    const defaultCmd = getSetting('defaultNewTerminalCommand') || '';
+    await registry.createTerminal({ command: defaultCmd || undefined });
   }
 }
+
+registry.createDefaultTerminal = createDefaultTerminal;
 
 async function _reregisterAgents(agentNames) {
   if (!agentNames || agentNames.length === 0) return 0;
@@ -358,8 +367,11 @@ async function restoreSession() {
   startLayoutAutoSave();
 }
 
+let _layoutAutoSaveInterval = null;
+
 function startLayoutAutoSave() {
-  setInterval(() => {
+  if (_layoutAutoSaveInterval) return;
+  _layoutAutoSaveInterval = setInterval(() => {
     saveLayoutToMain();
   }, 60000);
 }
@@ -457,7 +469,7 @@ document.addEventListener('DOMContentLoaded', function () {
   registry.setupWindowControls();
   registry.setupNewTabButton();
   registry.setupNewTerminalButton();
-  registry.setupClaudeButton();
+  registry.setupAgentButton();
   registry.setupThemeToggle();
   registry.setupThemeToggleButton();
   registry.setupSystemThemeListener();

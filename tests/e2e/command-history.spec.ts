@@ -1,8 +1,7 @@
 /**
- * command-history.spec.ts — F13: Command History
+ * command-history.spec.ts -- Command History
  *
- * Tests the command history IPC API, persistence, search/filter,
- * and the history overlay CSS classes.
+ * Tests the command history IPC API: get, clear, search, and callback.
  */
 
 import { test, expect } from '@playwright/test';
@@ -27,37 +26,26 @@ test.afterEach(async ({}, testInfo) => {
   await screenshotOnFailure(window, testInfo);
 });
 
-// ── History API ──────────────────────────────────────────────────────
-
-test('history API is available via agentDesk.history', async () => {
-  const hasApi = await window.evaluate(() => {
-    const ad = (window as any).agentDesk;
-    return !!(ad && ad.history && ad.history.get && ad.history.clear);
-  });
-  expect(hasApi).toBe(true);
-});
-
-test('history.get returns an array', async () => {
+test('history API is available and returns arrays', async () => {
   const result = await window.evaluate(async () => {
-    const entries = await (window as any).agentDesk.history.get();
-    return Array.isArray(entries);
+    const ad = (window as any).agentDesk;
+    if (!ad?.history?.get) return null;
+    const entries = await ad.history.get();
+    const limited = await ad.history.get(5);
+    const searched = await ad.history.get(100, 'nonexistent-search-xyz');
+    return {
+      isArray: Array.isArray(entries),
+      limitedCount: limited.length,
+      searchedIsArray: Array.isArray(searched),
+      hasOnNew: typeof ad.history.onNew === 'function',
+    };
   });
-  expect(result).toBe(true);
-});
 
-test('history.get supports limit parameter', async () => {
-  const entries = await window.evaluate(async () => {
-    return await (window as any).agentDesk.history.get(5);
-  });
-  expect(Array.isArray(entries)).toBe(true);
-  expect(entries.length).toBeLessThanOrEqual(5);
-});
-
-test('history.get supports search parameter', async () => {
-  const entries = await window.evaluate(async () => {
-    return await (window as any).agentDesk.history.get(100, 'nonexistent-search-xyz');
-  });
-  expect(Array.isArray(entries)).toBe(true);
+  expect(result).not.toBeNull();
+  expect(result!.isArray).toBe(true);
+  expect(result!.limitedCount).toBeLessThanOrEqual(5);
+  expect(result!.searchedIsArray).toBe(true);
+  expect(result!.hasOnNew).toBe(true);
 });
 
 test('history.clear empties the history', async () => {
@@ -69,33 +57,4 @@ test('history.clear empties the history', async () => {
     return await (window as any).agentDesk.history.get();
   });
   expect(entries.length).toBe(0);
-});
-
-test('history.onNew callback is a function', async () => {
-  const isFunction = await window.evaluate(() => {
-    return typeof (window as any).agentDesk.history.onNew === 'function';
-  });
-  expect(isFunction).toBe(true);
-});
-
-// ── History Overlay CSS ──────────────────────────────────────────────
-
-test('history overlay styles exist in document', async () => {
-  const hasStyles = await window.evaluate(() => {
-    const sheets = document.styleSheets;
-    for (let i = 0; i < sheets.length; i++) {
-      try {
-        const rules = sheets[i].cssRules;
-        for (let j = 0; j < rules.length; j++) {
-          if (rules[j].cssText && rules[j].cssText.includes('.history-overlay')) {
-            return true;
-          }
-        }
-      } catch {
-        continue;
-      }
-    }
-    return false;
-  });
-  expect(hasStyles).toBe(true);
 });

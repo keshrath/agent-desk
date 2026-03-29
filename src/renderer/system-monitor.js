@@ -4,7 +4,7 @@
 
 'use strict';
 
-import { state, dom, registry } from './state.js';
+import { dom, registry } from './state.js';
 
 // ---------------------------------------------------------------------------
 // Status Bar Widget
@@ -166,13 +166,11 @@ export function initSystemMonitor() {
 
   cleanupStatsListener = agentDesk.system.onStatsUpdate((stats) => {
     updateStatsWidget(stats);
-    state._lastSystemStats = stats;
   });
 
   agentDesk.system.getStats().then((stats) => {
     if (stats) {
       updateStatsWidget(stats);
-      state._lastSystemStats = stats;
     }
   });
 }

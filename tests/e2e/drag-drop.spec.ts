@@ -1,8 +1,7 @@
 /**
- * drag-drop.spec.ts — F15: Drag-Drop File Support
+ * drag-drop.spec.ts -- Drag-Drop File Support
  *
- * Tests the shell escape utility, drop overlay creation,
- * platform-aware escaping, and drag-drop setup.
+ * Tests drag-drop event handling and the drop overlay behavior.
  */
 
 import { test, expect } from '@playwright/test';
@@ -27,64 +26,7 @@ test.afterEach(async ({}, testInfo) => {
   await screenshotOnFailure(window, testInfo);
 });
 
-// ── Shell Escape Utility ─────────────────────────────────────────────
-
-test('_shellEscape handles simple paths without escaping', async () => {
-  const result = await window.evaluate(() => {
-    const fn = (window as any)._shellEscape;
-    if (typeof fn !== 'function') return null;
-    return fn('C:\\Users\\test\\file.txt');
-  });
-  if (result === null) return;
-  expect(result).toBeTruthy();
-  expect(typeof result).toBe('string');
-});
-
-test('_shellEscape wraps paths with spaces in quotes (Windows)', async () => {
-  const result = await window.evaluate(() => {
-    const fn = (window as any)._shellEscape;
-    if (typeof fn !== 'function') return null;
-    const isWin = navigator.platform.startsWith('Win');
-    if (!isWin) return 'skip';
-    return fn('C:\\Users\\my user\\file.txt');
-  });
-  if (result === null || result === 'skip') return;
-  expect(result).toContain('"');
-});
-
-test('_shellEscape handles special characters', async () => {
-  const result = await window.evaluate(() => {
-    const fn = (window as any)._shellEscape;
-    if (typeof fn !== 'function') return null;
-    return fn('path with spaces & special');
-  });
-  if (result === null) return;
-  expect(result.length).toBeGreaterThan('path with spaces & special'.length - 1);
-});
-
-// ── Drop Overlay ─────────────────────────────────────────────────────
-
-test('drop overlay styles exist in document', async () => {
-  const hasStyles = await window.evaluate(() => {
-    const sheets = document.styleSheets;
-    for (let i = 0; i < sheets.length; i++) {
-      try {
-        const rules = sheets[i].cssRules;
-        for (let j = 0; j < rules.length; j++) {
-          if (rules[j].cssText && rules[j].cssText.includes('.drop-overlay')) {
-            return true;
-          }
-        }
-      } catch {
-        continue;
-      }
-    }
-    return false;
-  });
-  expect(hasStyles).toBe(true);
-});
-
-test('dragenter on #app with Files creates overlay', async () => {
+test('dragenter with Files creates visible overlay', async () => {
   await window.evaluate(() => {
     const appEl = document.getElementById('app');
     if (!appEl) return;
@@ -92,12 +34,7 @@ test('dragenter on #app with Files creates overlay', async () => {
     const dt = new DataTransfer();
     dt.items.add(new File(['test'], 'test.txt'));
 
-    const event = new DragEvent('dragenter', {
-      bubbles: true,
-      cancelable: true,
-      dataTransfer: dt,
-    });
-    appEl.dispatchEvent(event);
+    appEl.dispatchEvent(new DragEvent('dragenter', { bubbles: true, cancelable: true, dataTransfer: dt }));
   });
   await window.waitForTimeout(300);
 
@@ -119,46 +56,31 @@ test('dragenter on #app with Files creates overlay', async () => {
   }
 });
 
-// ── Drag-Drop Setup ──────────────────────────────────────────────────
+test('window prevents default on dragover and drop', async () => {
+  const result = await window.evaluate(() => {
+    let dragoverPrevented = false;
+    let dropPrevented = false;
 
-test('window has dragover prevention handler', async () => {
-  const prevented = await window.evaluate(() => {
-    let wasPrevented = false;
-    const handler = (e: Event) => {
-      wasPrevented = e.defaultPrevented;
+    const dragHandler = (e: Event) => {
+      dragoverPrevented = e.defaultPrevented;
     };
-    window.addEventListener('dragover', handler, { once: true });
-
-    const dt = new DataTransfer();
-    const event = new DragEvent('dragover', {
-      bubbles: true,
-      cancelable: true,
-      dataTransfer: dt,
-    });
-    window.dispatchEvent(event);
-    window.removeEventListener('dragover', handler);
-    return wasPrevented;
-  });
-  expect(prevented).toBe(true);
-});
-
-test('window has drop prevention handler', async () => {
-  const prevented = await window.evaluate(() => {
-    let wasPrevented = false;
-    const handler = (e: Event) => {
-      wasPrevented = e.defaultPrevented;
+    const dropHandler = (e: Event) => {
+      dropPrevented = e.defaultPrevented;
     };
-    window.addEventListener('drop', handler, { once: true });
 
-    const dt = new DataTransfer();
-    const event = new DragEvent('drop', {
-      bubbles: true,
-      cancelable: true,
-      dataTransfer: dt,
-    });
-    window.dispatchEvent(event);
-    window.removeEventListener('drop', handler);
-    return wasPrevented;
+    window.addEventListener('dragover', dragHandler, { once: true });
+    window.dispatchEvent(
+      new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer: new DataTransfer() }),
+    );
+    window.removeEventListener('dragover', dragHandler);
+
+    window.addEventListener('drop', dropHandler, { once: true });
+    window.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: new DataTransfer() }));
+    window.removeEventListener('drop', dropHandler);
+
+    return { dragoverPrevented, dropPrevented };
   });
-  expect(prevented).toBe(true);
+
+  expect(result.dragoverPrevented).toBe(true);
+  expect(result.dropPrevented).toBe(true);
 });

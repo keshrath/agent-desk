@@ -127,17 +127,18 @@ const COMMANDS = [
     },
   },
   {
-    id: 'new-claude',
-    label: 'New Claude Session',
+    id: 'new-agent',
+    label: 'New Agent Session',
     icon: 'smart_toy',
     shortcut: 'Ctrl+Shift+C',
     action: () => {
       const profiles = typeof getProfiles === 'function' ? getProfiles() : [];
-      const claudeProfile = profiles.find((p) => p.id === 'claude');
-      if (claudeProfile) {
-        registry.createTerminalFromProfile(claudeProfile);
+      const shellIds = new Set(['default-shell']);
+      const agentProfile = profiles.find((p) => !shellIds.has(p.id) && p.command && p.command !== '');
+      if (agentProfile) {
+        registry.createTerminalFromProfile(agentProfile);
       } else {
-        registry.createTerminal({ command: 'claude' });
+        registry.createTerminal();
       }
     },
   },
@@ -200,7 +201,15 @@ const COMMANDS = [
     action: () => registry.switchView('knowledge'),
   },
   { id: 'view-settings', label: 'View: Settings', icon: 'settings', action: () => registry.switchView('settings') },
-  { id: 'toggle-theme', label: 'Toggle Theme', icon: 'dark_mode', action: () => registry.toggleTheme() },
+  {
+    id: 'toggle-theme',
+    label: 'Toggle Theme',
+    icon: 'dark_mode',
+    action: () => {
+      const btn = document.getElementById('btn-theme-toggle');
+      if (btn) btn.click();
+    },
+  },
   {
     id: 'shortcuts',
     label: 'Show Keyboard Shortcuts',
@@ -493,7 +502,8 @@ export function showQuickSwitcher() {
 
       const icon = document.createElement('span');
       icon.className = 'qs-icon material-symbols-outlined';
-      icon.textContent = item.title === 'Claude' ? 'smart_toy' : 'terminal';
+      const agentNames = new Set(['claude', 'opencode']);
+      icon.textContent = agentNames.has((item.title || '').toLowerCase()) ? 'smart_toy' : 'terminal';
 
       const title = document.createElement('span');
       title.className = 'qs-title';
@@ -671,7 +681,7 @@ export function showShortcutsOverlay() {
 
       <h3>Terminals</h3>
       <div class="shortcut-row"><span class="label">New Shell</span><kbd>Ctrl+Shift+T</kbd></div>
-      <div class="shortcut-row"><span class="label">New Claude Session</span><kbd>Ctrl+Shift+C</kbd></div>
+      <div class="shortcut-row"><span class="label">New Agent Session</span><kbd>Ctrl+Shift+C</kbd></div>
       <div class="shortcut-row"><span class="label">Close Terminal</span><kbd>Ctrl+W</kbd></div>
       <div class="shortcut-row"><span class="label">Next Terminal</span><kbd>Ctrl+Tab</kbd></div>
       <div class="shortcut-row"><span class="label">Previous Terminal</span><kbd>Ctrl+Shift+Tab</kbd></div>

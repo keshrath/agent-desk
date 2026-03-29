@@ -18,7 +18,7 @@ export function showBatchLauncher(prefill = {}) {
   if (document.querySelector('.batch-launcher-overlay')) return;
 
   const profiles = typeof getProfiles === 'function' ? getProfiles() : [];
-  const defaultProfileId = typeof getSetting === 'function' ? getSetting('defaultProfile') : 'claude';
+  const defaultProfileId = typeof getSetting === 'function' ? getSetting('defaultProfile') : 'default-shell';
 
   const overlay = document.createElement('div');
   overlay.className = 'batch-launcher-overlay';
@@ -99,7 +99,7 @@ export function showBatchLauncher(prefill = {}) {
   cmdInput.type = 'text';
   cmdInput.className = 'batch-launcher-input';
   cmdInput.value = prefill.initialCommand || '';
-  cmdInput.placeholder = '(optional) e.g. claude --dangerously-skip-permissions';
+  cmdInput.placeholder = '(optional)';
   cmdRow.appendChild(cmdInput);
   form.appendChild(cmdRow);
 
@@ -166,7 +166,7 @@ export function showBatchLauncher(prefill = {}) {
   launchBtn.innerHTML = '<span class="material-symbols-outlined">rocket_launch</span> Launch';
   launchBtn.addEventListener('click', () => {
     const config = _gatherConfig();
-    _executeBatchLaunch(config, progressWrap, progressFill, progressLabel, launchBtn, actions);
+    _executeBatchLaunch(config, progressWrap, progressFill, progressLabel, launchBtn);
   });
 
   actions.appendChild(saveBtn);
@@ -192,8 +192,8 @@ export function showBatchLauncher(prefill = {}) {
     const profile = profiles.find((p) => p.id === profileId) || profiles[0];
     return {
       count,
-      profileId: profile ? profile.id : 'claude',
-      profileName: profile ? profile.name : 'Claude',
+      profileId: profile ? profile.id : 'default-shell',
+      profileName: profile ? profile.name : 'Terminal',
       namingPattern: nameInput.value || 'agent-{n}',
       cwd: cwdInput.value || '',
       initialCommand: cmdInput.value || '',
@@ -260,7 +260,7 @@ async function _waitForCpuBelow(threshold, label) {
 // Execute batch launch
 // ---------------------------------------------------------------------------
 
-async function _executeBatchLaunch(config, progressWrap, progressFill, progressLabel, launchBtn, _actions) {
+async function _executeBatchLaunch(config, progressWrap, progressFill, progressLabel, launchBtn) {
   const { count, profileId, namingPattern, cwd, initialCommand, staggerDelay, maxConcurrent } = config;
 
   const form = document.querySelector('.batch-launcher-form');

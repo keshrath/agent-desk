@@ -1,8 +1,8 @@
 /**
- * dashboard-integration.spec.ts — F14: Dashboard Integration
+ * dashboard-integration.spec.ts -- Dashboard Integration
  *
- * Tests webview containers for comm/tasks/knowledge views,
- * dashboard toolbar elements, and the webview bridge API.
+ * Tests webview containers, data-src attributes, view switching,
+ * and the webview bridge API.
  */
 
 import { test, expect } from '@playwright/test';
@@ -27,92 +27,37 @@ test.afterEach(async ({}, testInfo) => {
   await screenshotOnFailure(window, testInfo);
 });
 
-// ── Webview Containers ───────────────────────────────────────────────
-
-test('comm webview container exists', async () => {
-  const container = window.locator('#view-comm');
-  await expect(container).toBeAttached();
+test('webviews have correct data-src attributes', async () => {
+  expect(await window.locator('#webview-comm').getAttribute('data-src')).toContain('localhost:3421');
+  expect(await window.locator('#webview-tasks').getAttribute('data-src')).toContain('localhost:3422');
+  expect(await window.locator('#webview-knowledge').getAttribute('data-src')).toContain('localhost:3423');
 });
 
-test('tasks webview container exists', async () => {
-  const container = window.locator('#view-tasks');
-  await expect(container).toBeAttached();
-});
+test('switching to each dashboard view activates it', async () => {
+  for (const view of ['comm', 'tasks', 'knowledge']) {
+    await window.locator(`#sidebar .nav-btn[data-view="${view}"]`).click();
+    await window.waitForTimeout(500);
+    const isActive = await window.locator(`#view-${view}`).evaluate((el) => el.classList.contains('active'));
+    expect(isActive).toBe(true);
+  }
 
-test('knowledge webview container exists', async () => {
-  const container = window.locator('#view-knowledge');
-  await expect(container).toBeAttached();
-});
-
-test('comm webview has correct data-src', async () => {
-  const src = await window.locator('#webview-comm').getAttribute('data-src');
-  expect(src).toContain('localhost:3421');
-});
-
-test('tasks webview has correct data-src', async () => {
-  const src = await window.locator('#webview-tasks').getAttribute('data-src');
-  expect(src).toContain('localhost:3422');
-});
-
-test('knowledge webview has correct data-src', async () => {
-  const src = await window.locator('#webview-knowledge').getAttribute('data-src');
-  expect(src).toContain('localhost:3423');
-});
-
-// ── View Switching ───────────────────────────────────────────────────
-
-test('switching to comm view activates it', async () => {
-  await window.locator('#sidebar .nav-btn[data-view="comm"]').click();
-  await window.waitForTimeout(500);
-
-  const isActive = await window.locator('#view-comm').evaluate((el) => el.classList.contains('active'));
-  expect(isActive).toBe(true);
-});
-
-test('switching to tasks view activates it', async () => {
-  await window.locator('#sidebar .nav-btn[data-view="tasks"]').click();
-  await window.waitForTimeout(500);
-
-  const isActive = await window.locator('#view-tasks').evaluate((el) => el.classList.contains('active'));
-  expect(isActive).toBe(true);
-});
-
-test('switching to knowledge view activates it', async () => {
-  await window.locator('#sidebar .nav-btn[data-view="knowledge"]').click();
-  await window.waitForTimeout(500);
-
-  const isActive = await window.locator('#view-knowledge').evaluate((el) => el.classList.contains('active'));
-  expect(isActive).toBe(true);
-});
-
-// ── Webview Bridge API ───────────────────────────────────────────────
-
-test('webview bridge API is available', async () => {
-  const hasApi = await window.evaluate(() => {
-    const ad = (window as any).agentDesk;
-    return !!(ad && ad.webview && ad.webview.getPreloadPath && ad.webview.broadcastTerminalUpdate);
-  });
-  expect(hasApi).toBe(true);
-});
-
-test('webview.getPreloadPath returns a path', async () => {
-  const path = await window.evaluate(async () => {
-    return await (window as any).agentDesk.webview.getPreloadPath();
-  });
-  expect(path).toBeTruthy();
-  expect(typeof path).toBe('string');
-});
-
-test('webview.onTerminalUpdate is a function', async () => {
-  const isFunction = await window.evaluate(() => {
-    return typeof (window as any).agentDesk.webview.onTerminalUpdate === 'function';
-  });
-  expect(isFunction).toBe(true);
-});
-
-// ── Return to terminals ──────────────────────────────────────────────
-
-test('return to terminals view', async () => {
   await window.locator('#sidebar .nav-btn[data-view="terminals"]').click();
   await window.waitForTimeout(300);
+});
+
+test('webview bridge API is available and functional', async () => {
+  const result = await window.evaluate(async () => {
+    const ad = (window as any).agentDesk;
+    const path = await ad.webview.getPreloadPath();
+    return {
+      hasApi: !!(ad.webview.getPreloadPath && ad.webview.broadcastTerminalUpdate),
+      path: path,
+      hasOnUpdate: typeof ad.webview.onTerminalUpdate === 'function',
+    };
+  });
+
+  expect(result.hasApi).toBe(true);
+  expect(result.path).toBeTruthy();
+  expect(typeof result.path).toBe('string');
+  expect(result.hasOnUpdate).toBe(true);
 });

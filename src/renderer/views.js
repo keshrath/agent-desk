@@ -325,11 +325,11 @@ export function setupSidebar() {
   }
 }
 
-export function setupClaudeButton() {
-  document.getElementById('btn-start-claude')?.addEventListener('click', () => {
+export function setupAgentButton() {
+  document.getElementById('btn-start-agent')?.addEventListener('click', () => {
     if (state.activeView !== 'terminals') switchView('terminals');
-    const claudeProfile = _getClaudeProfile();
-    registry.createTerminalFromProfile(claudeProfile);
+    const agentProfile = _getDefaultAgentProfile();
+    registry.createTerminalFromProfile(agentProfile);
   });
 }
 
@@ -671,7 +671,7 @@ export function setupTrayActions() {
       const opts = {};
       if (cwd) opts.cwd = cwd;
       if (command === 'default') {
-        opts.command = getSetting('defaultNewTerminalCommand') || 'claude';
+        opts.command = getSetting('defaultNewTerminalCommand') || undefined;
       } else if (command) {
         opts.command = command;
       }
@@ -699,9 +699,18 @@ function _getDefaultProfile() {
   return profiles.find((p) => p.id === defaultId) || profiles[0] || null;
 }
 
-function _getClaudeProfile() {
+function _getDefaultAgentProfile() {
   const profiles = typeof getProfiles === 'function' ? getProfiles() : [];
-  return profiles.find((p) => p.id === 'claude') || { command: 'claude', icon: 'smart_toy', name: 'Claude' };
+  const defaultId = typeof getSetting === 'function' ? getSetting('defaultProfile') : '';
+  if (defaultId) {
+    const match = profiles.find((p) => p.id === defaultId);
+    if (match && match.id !== 'default-shell') return match;
+  }
+  const shellIds = new Set(['default-shell']);
+  return (
+    profiles.find((p) => !shellIds.has(p.id) && p.command && p.command !== '') ||
+    profiles[0] || { command: '', icon: 'terminal', name: 'Terminal' }
+  );
 }
 
 function _launchDefaultProfile() {
@@ -859,7 +868,7 @@ registry.applyTheme = applyTheme;
 registry.updateStatusBar = updateStatusBar;
 registry.setupWebviewStates = setupWebviewStates;
 registry.setupSidebar = setupSidebar;
-registry.setupClaudeButton = setupClaudeButton;
+registry.setupAgentButton = setupAgentButton;
 registry.setupThemeToggle = setupThemeToggle;
 registry.setupThemeToggleButton = setupThemeToggleButton;
 registry.setupSystemThemeListener = setupSystemThemeListener;

@@ -391,8 +391,8 @@ const eventStream = (function () {
       jumpBtn.textContent = 'Go to terminal';
       jumpBtn.addEventListener('click', (e) => {
         e.stopPropagation();
-        if (typeof switchToTerminal === 'function') {
-          switchToTerminal(enrichedEvent.terminalId);
+        if (window.__agentDeskRegistry && window.__agentDeskRegistry.switchToTerminal) {
+          window.__agentDeskRegistry.switchToTerminal(enrichedEvent.terminalId);
         }
       });
       detail.appendChild(jumpBtn);
@@ -639,8 +639,8 @@ const eventStream = (function () {
       severity: ev.severity,
     }));
     navigator.clipboard.writeText(JSON.stringify(exportData, null, 2));
-    if (typeof showToast === 'function') {
-      showToast('Exported ' + exportData.length + ' events to clipboard');
+    if (window.__agentDeskRegistry && window.__agentDeskRegistry.showToast) {
+      window.__agentDeskRegistry.showToast('Exported ' + exportData.length + ' events to clipboard');
     }
   }
 

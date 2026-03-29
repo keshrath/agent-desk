@@ -200,8 +200,11 @@ function _wrapTerminalContextMenu() {
       origShowCtx(cx, cy, items);
     };
 
-    _origShowTerminalContextMenu(x, y, id);
-    registry.showContextMenu = origShowCtx;
+    try {
+      _origShowTerminalContextMenu(x, y, id);
+    } finally {
+      registry.showContextMenu = origShowCtx;
+    }
   };
 }
 

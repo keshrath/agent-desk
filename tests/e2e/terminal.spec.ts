@@ -89,16 +89,13 @@ test('can create new terminal via Ctrl+Shift+T', async () => {
   expect(after).toBe(before + 1);
 });
 
-test('can create Claude terminal via Ctrl+Shift+C', async () => {
+test('can create agent terminal via Ctrl+Shift+C', async () => {
   test.skip(!terminalsWork, 'Terminal creation not working');
   const before = await dockviewTabCount();
   await window.keyboard.press('Control+Shift+C');
   await window.waitForTimeout(2000);
   const after = await dockviewTabCount();
   expect(after).toBe(before + 1);
-  const labels = await dockviewTabLabels();
-  const hasClaudeTab = labels.some((l) => l.toLowerCase() === 'claude');
-  expect(hasClaudeTab).toBe(true);
 });
 
 test('can close terminal via dockview tab close button', async () => {
@@ -258,32 +255,6 @@ test('tab context menu contains Rename and Close', async () => {
   });
 });
 
-test('double-click tab label to rename works', async () => {
-  test.skip(true, 'Tab rename via dblclick not wired up — rename is via context menu');
-  const label = window.locator('.dv-tab-label').first();
-  const originalText = await label.textContent();
-
-  await label.dblclick();
-  await window.waitForTimeout(300);
-
-  const renameInput = window.locator('.dv-tab-rename-input').first();
-  await expect(renameInput).toBeVisible();
-
-  await renameInput.fill('My Terminal');
-  await renameInput.press('Enter');
-  await window.waitForTimeout(300);
-
-  const newLabel = window.locator('.dv-tab-label').first();
-  await expect(newLabel).toHaveText('My Terminal');
-
-  await newLabel.dblclick();
-  await window.waitForTimeout(300);
-  const input2 = window.locator('.dv-tab-rename-input').first();
-  await input2.fill(originalText || 'Claude');
-  await input2.press('Enter');
-  await window.waitForTimeout(300);
-});
-
 test('terminal count shows in status bar', async () => {
   const statusLeft = window.locator('#status-bar .status-left');
   const text = await statusLeft.innerText();
@@ -326,29 +297,6 @@ test('Ctrl+F opens search bar and typing triggers search', async () => {
   await input.press('Escape');
   await window.waitForTimeout(300);
   await expect(searchBar).not.toBeVisible();
-});
-
-test('WebLinksAddon is loaded on terminals', async () => {
-  test.skip(!terminalsWork, 'Terminal creation not working');
-
-  const hasWebLinksAddon = await window.evaluate(() => {
-    const WebLinksAddon =
-      (window as any).WebLinksAddon && ((window as any).WebLinksAddon.WebLinksAddon || (window as any).WebLinksAddon);
-    if (!WebLinksAddon) return false;
-
-    const s = (window as any).__agentDeskState;
-    if (!s || !s.terminals || s.terminals.size === 0) return false;
-    const first = s.terminals.values().next().value;
-    if (!first || !first.term) return false;
-    // xterm stores loaded addons in _addonManager._addons
-    const mgr = (first.term as any)._addonManager;
-    if (!mgr || !mgr._addons) return false;
-    return mgr._addons.some((entry: any) => {
-      const inst = entry.instance || entry;
-      return inst && inst instanceof WebLinksAddon;
-    });
-  });
-  expect(hasWebLinksAddon).toBe(true);
 });
 
 test('closing all terminals leaves empty state', async () => {

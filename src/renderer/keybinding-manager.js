@@ -25,12 +25,12 @@ const KeybindingManager = (function () {
       action: 'newTerminal',
     },
     {
-      id: 'terminal.newClaude',
-      label: 'New Claude Session',
+      id: 'terminal.newAgent',
+      label: 'New Agent Session',
       category: 'Terminals',
       defaultKeys: 'Ctrl+Shift+C',
       keys: null,
-      action: 'newClaude',
+      action: 'newAgent',
     },
     {
       id: 'terminal.close',
@@ -261,6 +261,14 @@ const KeybindingManager = (function () {
       defaultKeys: 'Ctrl+Alt+W',
       keys: null,
       action: 'loadWorkspace',
+    },
+    {
+      id: 'general.batchLaunch',
+      label: 'Batch Launch Agents',
+      category: 'General',
+      defaultKeys: 'Ctrl+Shift+B',
+      keys: null,
+      action: 'batchLaunch',
     },
   ];
 

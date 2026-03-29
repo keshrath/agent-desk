@@ -32,7 +32,7 @@ const DEFAULT_TEMPLATES = [
     id: 'parallel-tasks',
     name: 'Parallel Tasks',
     icon: 'dynamic_feed',
-    description: '5 Claude agents with generic names for parallel work',
+    description: '5 agents with generic names for parallel work',
     builtin: true,
     agents: [
       { name: 'task-1', profile: 'claude', command: 'claude', initialInput: '' },
@@ -200,7 +200,7 @@ export function showTemplateSaveDialog(batchConfig) {
     for (let i = 0; i < count; i++) {
       agents.push({
         name: pattern.replace(/\{n\}/g, String(i + 1)),
-        profile: batchConfig.profileId || 'claude',
+        profile: batchConfig.profileId || 'default-shell',
         command: batchConfig.initialCommand ? '' : '',
         initialInput: batchConfig.initialCommand || '',
         cwd: batchConfig.cwd || '',

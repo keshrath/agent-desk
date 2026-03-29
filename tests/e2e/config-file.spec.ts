@@ -1,8 +1,8 @@
 /**
- * config-file.spec.ts — F6: Config File
+ * config-file.spec.ts -- Config File
  *
- * Tests config file existence, settings persistence to config,
- * config sections, version field, and profile changes persisting.
+ * Tests config file API, structure, settings persistence,
+ * and read/write round-trip.
  */
 
 import { test, expect } from '@playwright/test';
@@ -27,58 +27,24 @@ test.afterEach(async ({}, testInfo) => {
   await screenshotOnFailure(window, testInfo);
 });
 
-// ── Config API ───────────────────────────────────────────────────────
-
-test('config API is available via agentDesk.config', async () => {
-  const hasApi = await window.evaluate(() => {
-    const ad = (window as any).agentDesk;
-    return !!(ad && ad.config && ad.config.read && ad.config.write && ad.config.getPath);
-  });
-  expect(hasApi).toBe(true);
-});
-
 test('config file path resolves to ~/.agent-desk/config.json', async () => {
   const configPath = await window.evaluate(async () => {
     return await (window as any).agentDesk.config.getPath();
   });
-  expect(configPath).toBeTruthy();
   expect(configPath).toContain('config.json');
   expect(configPath).toContain('.agent-desk');
 });
 
-test('config file can be read and contains data', async () => {
-  const config = await window.evaluate(async () => {
-    return await (window as any).agentDesk.config.read();
-  });
-  expect(config).toBeTruthy();
-  expect(typeof config).toBe('object');
-});
-
-test('config file has version field', async () => {
+test('config file has expected structure', async () => {
   const config = await window.evaluate(async () => {
     return await (window as any).agentDesk.config.read();
   });
   expect(config).toBeTruthy();
   expect(config.version).toBeTruthy();
-});
-
-test('config file contains settings section', async () => {
-  const config = await window.evaluate(async () => {
-    return await (window as any).agentDesk.config.read();
-  });
-  expect(config.settings).toBeTruthy();
   expect(typeof config.settings).toBe('object');
-});
-
-test('config file contains profiles section', async () => {
-  const config = await window.evaluate(async () => {
-    return await (window as any).agentDesk.config.read();
-  });
-  expect(config.profiles).toBeTruthy();
   expect(Array.isArray(config.profiles)).toBe(true);
+  expect(config).toHaveProperty('workspaces');
 });
-
-// ── Settings Persistence to Config ───────────────────────────────────
 
 test('changing a setting writes to config file', async () => {
   await window.locator('#sidebar .nav-btn[data-view="settings"]').click();
@@ -96,7 +62,6 @@ test('changing a setting writes to config file', async () => {
   const config = await window.evaluate(async () => {
     return await (window as any).agentDesk.config.read();
   });
-
   expect(config.settings.fontSize).toBe(16);
 
   await fontSizeInput.fill('14');
@@ -121,20 +86,7 @@ test('config survives localStorage clear (reads from file)', async () => {
   expect(config.settings.fontSize).toBeDefined();
 });
 
-// ── Config Sections ───────────────────────────────────────────────��──
-
-test('config workspaces section exists', async () => {
-  const config = await window.evaluate(async () => {
-    return await (window as any).agentDesk.config.read();
-  });
-  expect(config).toHaveProperty('workspaces');
-});
-
 test('config can be written and read back', async () => {
-  const original = await window.evaluate(async () => {
-    return await (window as any).agentDesk.config.read();
-  });
-
   const testValue = 'e2e-test-' + Date.now();
   await window.evaluate(async (val: string) => {
     const config = await (window as any).agentDesk.config.read();
@@ -147,7 +99,6 @@ test('config can be written and read back', async () => {
   const updated = await window.evaluate(async () => {
     return await (window as any).agentDesk.config.read();
   });
-
   expect(updated._e2eTest).toBe(testValue);
 
   await window.evaluate(async () => {

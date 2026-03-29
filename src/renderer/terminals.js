@@ -65,6 +65,13 @@ function _refreshTaskBadges() {
 
 _startTaskBadgePolling();
 
+function _stopTaskBadgePolling() {
+  if (_taskBadgeTimer) {
+    clearInterval(_taskBadgeTimer);
+    _taskBadgeTimer = null;
+  }
+}
+
 // Status Detection
 
 const IDLE_TIMEOUT = 5000;
@@ -151,11 +158,7 @@ function _updateStatusDot(ts) {
         .map((t) => t.tool + (t.arg ? '(' + t.arg.slice(0, 40) + ')' : ''))
         .join('\n');
     }
-    if (registry.enrichTabTooltip) {
-      ts._tabEl.title = registry.enrichTabTooltip(ts.id, tooltip);
-    } else {
-      ts._tabEl.title = tooltip;
-    }
+    ts._tabEl.title = tooltip;
   }
 
   if (registry.updateTabLifecycleButtons) {
@@ -469,7 +472,8 @@ export async function reconnectTerminal(liveInfo) {
   try {
     const id = liveInfo.id;
     const command = liveInfo.command || 'shell';
-    const title = liveInfo.title || (command === 'claude' ? 'Claude' : command);
+    const COMMAND_LABELS = { claude: 'Claude', opencode: 'OpenCode' };
+    const title = liveInfo.title || COMMAND_LABELS[command] || command;
 
     const { termState, panelId } = _buildTerminalInstance(id, title);
 
@@ -514,7 +518,7 @@ export async function createTerminal(opts = {}) {
     const ptyInfo = await agentDesk.terminal.create(createOpts);
     const id = ptyInfo.id;
 
-    const defaultCommand = getSetting('defaultNewTerminalCommand') || getSetting('defaultShell') || 'claude';
+    const defaultCommand = getSetting('defaultNewTerminalCommand') || getSetting('defaultShell') || '';
     const command = opts.command || ptyInfo.command || defaultCommand;
     const COMMAND_LABELS = { claude: 'Claude', opencode: 'OpenCode' };
     const COMMAND_ICONS = { claude: 'smart_toy', opencode: 'code' };
@@ -565,7 +569,7 @@ export async function createTerminal(opts = {}) {
       state.dockview.addPanel(addOpts);
     }
 
-    if (command === 'claude') {
+    if (/^(claude|opencode)$/i.test(command)) {
       agentParser.markAsAgent(id, null);
     }
 
@@ -630,6 +634,10 @@ export function closeTerminal(id) {
   if (ts._idleTimer) {
     clearTimeout(ts._idleTimer);
     ts._idleTimer = null;
+  }
+  if (ts._statusDebounce) {
+    clearTimeout(ts._statusDebounce);
+    ts._statusDebounce = null;
   }
 
   agentDesk.terminal.unsubscribe(id);
@@ -727,29 +735,27 @@ function _updateEmptyState() {
       });
       btnRow.appendChild(btnTerminal);
 
-      const btnClaude = document.createElement('button');
-      btnClaude.className = 'empty-state-btn empty-state-btn-accent';
-      btnClaude.innerHTML = '<span class="material-symbols-outlined">smart_toy</span> Claude';
-      btnClaude.addEventListener('click', () => {
-        if (registry.createClaudeTerminal) registry.createClaudeTerminal();
-        else if (registry.createTerminal) registry.createTerminal({ command: 'claude' });
-      });
-      btnRow.appendChild(btnClaude);
-
-      const btnOpenCode = document.createElement('button');
-      btnOpenCode.className = 'empty-state-btn';
-      btnOpenCode.innerHTML = '<span class="material-symbols-outlined">code</span> OpenCode';
-      btnOpenCode.addEventListener('click', () => {
-        registry.createTerminal({ command: 'opencode' });
-      });
-      btnRow.appendChild(btnOpenCode);
+      const agentProfiles = typeof getProfiles === 'function' ? getProfiles() : [];
+      const shellIds = new Set(['default-shell']);
+      for (const p of agentProfiles) {
+        if (shellIds.has(p.id) || !p.command) continue;
+        const btn = document.createElement('button');
+        btn.className =
+          'empty-state-btn' +
+          (p === agentProfiles.find((ap) => !shellIds.has(ap.id) && ap.command) ? ' empty-state-btn-accent' : '');
+        btn.innerHTML = '<span class="material-symbols-outlined">' + (p.icon || 'smart_toy') + '</span> ' + p.name;
+        btn.addEventListener('click', () => {
+          registry.createTerminalFromProfile(p);
+        });
+        btnRow.appendChild(btn);
+      }
 
       emptyEl.appendChild(btnRow);
 
       const hint = document.createElement('div');
       hint.className = 'empty-text-hint';
       hint.innerHTML =
-        '<kbd>Ctrl+Shift+T</kbd> terminal &nbsp;·&nbsp; <kbd>Ctrl+Shift+C</kbd> Claude &nbsp;·&nbsp; <kbd>Ctrl+Shift+B</kbd> batch launch';
+        '<kbd>Ctrl+Shift+T</kbd> terminal &nbsp;·&nbsp; <kbd>Ctrl+Shift+C</kbd> agent &nbsp;·&nbsp; <kbd>Ctrl+Shift+B</kbd> batch launch';
       emptyEl.appendChild(hint);
 
       container.appendChild(emptyEl);
@@ -766,7 +772,10 @@ export function renameTerminal(id, newTitle, manual = false) {
   if (ts.manualTitle && !manual) return;
   ts.title = newTitle;
   if (ts._tabLabel) ts._tabLabel.textContent = newTitle;
-  if (ts._tabIcon && !ts._profileIcon) ts._tabIcon.textContent = newTitle === 'Claude' ? 'smart_toy' : 'terminal';
+  if (ts._tabIcon && !ts._profileIcon) {
+    const agentNames = new Set(['claude', 'opencode']);
+    ts._tabIcon.textContent = agentNames.has((newTitle || '').toLowerCase()) ? 'smart_toy' : 'terminal';
+  }
 
   if (state.dockview && ts.panelId) {
     try {
@@ -1133,3 +1142,4 @@ registry._resolveTermFont = _resolveTermFont;
 registry._updateSidebarBadge = _updateSidebarBadge;
 registry.handleTerminalRestart = handleTerminalRestart;
 registry.updateTabLifecycleButtons = updateTabLifecycleButtons;
+registry._stopTaskBadgePolling = _stopTaskBadgePolling;

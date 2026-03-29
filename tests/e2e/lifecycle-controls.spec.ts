@@ -1,8 +1,8 @@
 /**
- * lifecycle-controls.spec.ts — Lifecycle Controls (Context Menu)
+ * lifecycle-controls.spec.ts -- Lifecycle Controls (Context Menu)
  *
- * Tests the lifecycle menu items (Interrupt, Stop, Force Kill, Restart)
- * available in terminal tab context menus.
+ * Tests context menu rendering, lifecycle menu item logic,
+ * and confirm dialog behavior.
  */
 
 import { test, expect } from '@playwright/test';
@@ -27,25 +27,7 @@ test.afterEach(async ({}, testInfo) => {
   await screenshotOnFailure(window, testInfo);
 });
 
-// ��─ Context Menu API ────────────────────────────────────────────────
-
-test('showContextMenu function is available on registry', async () => {
-  const exists = await window.evaluate(() => {
-    const r = (window as any).__agentDeskRegistry;
-    return typeof r.showContextMenu === 'function';
-  });
-  expect(exists).toBe(true);
-});
-
-test('hideContextMenu function is available on registry', async () => {
-  const exists = await window.evaluate(() => {
-    const r = (window as any).__agentDeskRegistry;
-    return typeof r.hideContextMenu === 'function';
-  });
-  expect(exists).toBe(true);
-});
-
-test('context menu renders items correctly', async () => {
+test('context menu renders items with separators and danger styling', async () => {
   await window.evaluate(() => {
     const r = (window as any).__agentDeskRegistry;
     r.showContextMenu(100, 100, [
@@ -56,115 +38,59 @@ test('context menu renders items correctly', async () => {
   });
   await window.waitForTimeout(200);
 
-  const menu = window.locator('.context-menu');
-  await expect(menu).toBeAttached();
-
-  const items = window.locator('.context-item');
-  const count = await items.count();
-  expect(count).toBe(2);
-
-  const separator = window.locator('.context-separator');
-  await expect(separator).toBeAttached();
-
-  const dangerItem = window.locator('.context-item.danger');
-  await expect(dangerItem).toBeAttached();
+  await expect(window.locator('.context-menu')).toBeAttached();
+  expect(await window.locator('.context-item').count()).toBe(2);
+  await expect(window.locator('.context-separator')).toBeAttached();
+  await expect(window.locator('.context-item.danger')).toBeAttached();
 
   await window.evaluate(() => {
-    const r = (window as any).__agentDeskRegistry;
-    r.hideContextMenu();
+    (window as any).__agentDeskRegistry.hideContextMenu();
   });
 });
 
-// ── Lifecycle Menu Items ────────────────────────────────────────────
-
-test('getLifecycleMenuItems returns expected items', async () => {
-  const items = (await window.evaluate(() => {
-    const r = (window as any).__agentDeskRegistry;
+test('lifecycle items are enabled for running terminals and disabled for exited', async () => {
+  const result = (await window.evaluate(() => {
     const s = (window as any).__agentDeskState;
 
-    s.terminals.set('lifecycle-test-1', {
-      title: 'Test Terminal',
-      status: 'running',
-    });
+    s.terminals.set('lc-running', { title: 'Running', status: 'running' });
+    s.terminals.set('lc-exited', { title: 'Exited', status: 'exited' });
 
-    const menuItems = (() => {
-      const ts = r.getTerminalState ? r.getTerminalState('lifecycle-test-1') : null;
-      const isRunning = ts && (ts.status === 'running' || ts.status === 'waiting' || ts.status === 'idle');
+    const checkRunning = (id: string) => {
+      const ts = s.terminals.get(id);
+      return ts && (ts.status === 'running' || ts.status === 'waiting' || ts.status === 'idle');
+    };
 
-      return [
-        { label: 'Interrupt (Ctrl+C)', disabled: !isRunning },
-        { label: 'Stop Agent', disabled: !isRunning },
-        { label: 'Force Kill', disabled: !isRunning },
-        { label: 'Restart', disabled: false },
-      ];
-    })();
+    const runningEnabled = checkRunning('lc-running');
+    const exitedEnabled = checkRunning('lc-exited');
 
-    s.terminals.delete('lifecycle-test-1');
-    return menuItems;
-  })) as any[];
+    s.terminals.delete('lc-running');
+    s.terminals.delete('lc-exited');
 
-  expect(items.length).toBe(4);
-  expect(items[0].label).toBe('Interrupt (Ctrl+C)');
-  expect(items[0].disabled).toBe(false);
-  expect(items[1].label).toBe('Stop Agent');
-  expect(items[2].label).toBe('Force Kill');
-  expect(items[3].label).toBe('Restart');
+    return { runningEnabled, exitedEnabled };
+  })) as any;
+
+  expect(result.runningEnabled).toBe(true);
+  expect(result.exitedEnabled).toBe(false);
 });
 
-test('lifecycle items are disabled for non-running terminals', async () => {
-  const items = (await window.evaluate(() => {
-    const s = (window as any).__agentDeskState;
-
-    s.terminals.set('lifecycle-test-2', {
-      title: 'Exited Terminal',
-      status: 'exited',
-    });
-
-    const ts = s.terminals.get('lifecycle-test-2');
-    const isRunning = ts && (ts.status === 'running' || ts.status === 'waiting' || ts.status === 'idle');
-
-    const result = [
-      { label: 'Interrupt', disabled: !isRunning },
-      { label: 'Stop', disabled: !isRunning },
-      { label: 'Force Kill', disabled: !isRunning },
-    ];
-
-    s.terminals.delete('lifecycle-test-2');
-    return result;
-  })) as any[];
-
-  expect(items[0].disabled).toBe(true);
-  expect(items[1].disabled).toBe(true);
-  expect(items[2].disabled).toBe(true);
-});
-
-// ── Confirm Dialog ──────────────────────────────────────────────────
-
-test('confirm dialog renders correctly', async () => {
+test('confirm dialog renders and closes on Cancel', async () => {
   await window.evaluate(() => {
-    const r = (window as any).__agentDeskRegistry;
-    r.showConfirmDialog('Test Title', 'Test message content', () => {});
+    (window as any).__agentDeskRegistry.showConfirmDialog('Test Title', 'Test message content', () => {});
   });
   await window.waitForTimeout(300);
 
-  const overlay = window.locator('.confirm-overlay');
-  await expect(overlay).toBeAttached();
+  await expect(window.locator('.confirm-overlay')).toBeAttached();
+  await expect(window.locator('.confirm-modal h3')).toHaveText('Test Title');
+  await expect(window.locator('.confirm-modal p')).toHaveText('Test message content');
 
-  const title = window.locator('.confirm-modal h3');
-  await expect(title).toHaveText('Test Title');
-
-  const message = window.locator('.confirm-modal p');
-  await expect(message).toHaveText('Test message content');
-
-  const cancelBtn = window.locator('.confirm-btn-cancel');
-  await cancelBtn.click();
+  await window.locator('.confirm-btn-cancel').click();
   await window.waitForTimeout(200);
+  expect(await window.locator('.confirm-overlay').count()).toBe(0);
 });
 
 test('confirm dialog closes on Escape', async () => {
   await window.evaluate(() => {
-    const r = (window as any).__agentDeskRegistry;
-    r.showConfirmDialog('Escape Test', 'Press Escape', () => {});
+    (window as any).__agentDeskRegistry.showConfirmDialog('Escape Test', 'Press Escape', () => {});
   });
   await window.waitForTimeout(300);
 
@@ -172,8 +98,5 @@ test('confirm dialog closes on Escape', async () => {
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
   });
   await window.waitForTimeout(200);
-
-  const overlay = window.locator('.confirm-overlay');
-  const count = await overlay.count();
-  expect(count).toBe(0);
+  expect(await window.locator('.confirm-overlay').count()).toBe(0);
 });

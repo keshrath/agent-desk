@@ -80,18 +80,6 @@ test('showing a new toast replaces the existing one', async () => {
   await window.waitForTimeout(2000);
 });
 
-test('toast has correct CSS class for styling', async () => {
-  await window.evaluate(() => {
-    (window as any).__agentDeskRegistry.showToast('Styled toast');
-  });
-  await window.waitForTimeout(100);
-
-  const toast = window.locator('.toast');
-  await expect(toast).toHaveClass(/toast/);
-
-  await window.waitForTimeout(2000);
-});
-
 test('clipboard copy triggers toast', async () => {
   const terminalsExist = (await window.locator('.dv-terminal-host').count()) > 0;
   if (!terminalsExist) return;

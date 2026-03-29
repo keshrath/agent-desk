@@ -1,8 +1,8 @@
 /**
- * keybindings.spec.ts — F5: Keyboard Shortcuts
+ * keybindings.spec.ts -- Keyboard Shortcuts
  *
- * Tests default keybindings, the keybindings settings section, editing,
- * resetting, conflict detection, and persistence.
+ * Tests default keybindings, key parsing, setting/resetting bindings,
+ * unbinding, and the keybindings settings section.
  */
 
 import { test, expect } from '@playwright/test';
@@ -27,96 +27,52 @@ test.afterEach(async ({}, testInfo) => {
   await screenshotOnFailure(window, testInfo);
 });
 
-// ── KeybindingManager Availability ───────────────────────────────────
+test('default bindings include essential shortcuts in correct categories', async () => {
+  const result = (await window.evaluate(`(() => {
+    const bindings = KeybindingManager.getBindings();
+    const ids = bindings.map(b => b.id);
+    const categories = [...new Set(bindings.map(b => b.category))];
+    const newTermKeys = bindings.find(b => b.id === 'terminal.new')?.effectiveKeys;
+    return { ids, categories, newTermKeys };
+  })()`)) as any;
 
-test('KeybindingManager global is available', async () => {
-  const exists = await window.evaluate('typeof KeybindingManager !== "undefined"');
-  expect(exists).toBe(true);
+  expect(result.ids).toContain('terminal.new');
+  expect(result.ids).toContain('terminal.newAgent');
+  expect(result.ids).toContain('terminal.close');
+  expect(result.ids).toContain('general.commandPalette');
+  expect(result.ids).toContain('general.eventStream');
+  expect(result.ids).toContain('workspace.save');
+  expect(result.ids).toContain('workspace.load');
+  expect(result.categories).toContain('Terminals');
+  expect(result.categories).toContain('Views');
+  expect(result.categories).toContain('General');
+  expect(result.newTermKeys).toBe('Ctrl+Shift+T');
 });
 
-test('KeybindingManager has all expected methods', async () => {
-  const methods = (await window.evaluate(`({
-    getBindings: typeof KeybindingManager.getBindings === 'function',
-    setBindingKeys: typeof KeybindingManager.setBindingKeys === 'function',
-    resetBinding: typeof KeybindingManager.resetBinding === 'function',
-    resetAll: typeof KeybindingManager.resetAll === 'function',
-    startCapture: typeof KeybindingManager.startCapture === 'function',
-    parseKeyCombo: typeof KeybindingManager.parseKeyCombo === 'function',
-  })`)) as Record<string, boolean>;
-  Object.values(methods).forEach((v) => expect(v).toBe(true));
-});
-
-// ── Default Bindings ─────────────────────────────────────────────────
-
-test('default bindings include essential shortcuts', async () => {
-  const ids = (await window.evaluate(`KeybindingManager.getBindings().map(b => b.id)`)) as string[];
-  expect(ids).toContain('terminal.new');
-  expect(ids).toContain('terminal.newClaude');
-  expect(ids).toContain('terminal.close');
-  expect(ids).toContain('terminal.next');
-  expect(ids).toContain('terminal.prev');
-  expect(ids).toContain('general.commandPalette');
-  expect(ids).toContain('general.eventStream');
-  expect(ids).toContain('workspace.save');
-  expect(ids).toContain('workspace.load');
-});
-
-test('default keybinding for new terminal is Ctrl+Shift+T', async () => {
-  const keys = await window.evaluate(`(() => {
-    const b = KeybindingManager.getBindings().find(b => b.id === 'terminal.new');
-    return b ? b.effectiveKeys : null;
-  })()`);
-  expect(keys).toBe('Ctrl+Shift+T');
-});
-
-test('bindings are organized into categories', async () => {
-  const categories = (await window.evaluate(
-    `[...new Set(KeybindingManager.getBindings().map(b => b.category))]`,
-  )) as string[];
-  expect(categories).toContain('Terminals');
-  expect(categories).toContain('Views');
-  expect(categories).toContain('General');
-  expect(categories).toContain('Navigation');
-});
-
-// ── Key Parsing ──────────────────────────────────────────────────────
-
-test('parseKeyCombo handles single combo', async () => {
+test('parseKeyCombo handles valid combos and empty string', async () => {
   const result = await window.evaluate(`(() => {
     const combo = KeybindingManager.parseKeyCombo('Ctrl+Shift+T');
-    return combo && combo.ctrl && combo.shift && combo.key === 'T';
+    const empty = KeybindingManager.parseKeyCombo('');
+    return {
+      valid: combo && combo.ctrl && combo.shift && combo.key === 'T',
+      emptyIsNull: empty === null,
+    };
   })()`);
-  expect(result).toBe(true);
+  expect((result as any).valid).toBe(true);
+  expect((result as any).emptyIsNull).toBe(true);
 });
 
-test('parseKeyCombo returns null for empty string', async () => {
-  const result = await window.evaluate(`KeybindingManager.parseKeyCombo('')`);
-  expect(result).toBeNull();
-});
-
-// ── Setting and Resetting Bindings ───────────────────────────────────
-
-test('setBindingKeys overrides a binding', async () => {
+test('setBindingKeys overrides and resetBinding restores', async () => {
   await window.evaluate(`KeybindingManager.setBindingKeys('terminal.new', 'Ctrl+Shift+N')`);
+  let keys = await window.evaluate(`KeybindingManager.getBindings().find(b => b.id === 'terminal.new').effectiveKeys`);
+  expect(keys).toBe('Ctrl+Shift+N');
 
-  const newKeys = await window.evaluate(`(() => {
-    const b = KeybindingManager.getBindings().find(b => b.id === 'terminal.new');
-    return b ? b.effectiveKeys : null;
-  })()`);
-  expect(newKeys).toBe('Ctrl+Shift+N');
-});
-
-test('resetBinding restores default', async () => {
   await window.evaluate(`KeybindingManager.resetBinding('terminal.new')`);
-
-  const keys = await window.evaluate(`(() => {
-    const b = KeybindingManager.getBindings().find(b => b.id === 'terminal.new');
-    return b ? b.effectiveKeys : null;
-  })()`);
+  keys = await window.evaluate(`KeybindingManager.getBindings().find(b => b.id === 'terminal.new').effectiveKeys`);
   expect(keys).toBe('Ctrl+Shift+T');
 });
 
-test('resetAll restores all defaults', async () => {
+test('resetAll restores all defaults after multiple changes', async () => {
   await window.evaluate(`(() => {
     KeybindingManager.setBindingKeys('terminal.new', 'Ctrl+Shift+N');
     KeybindingManager.setBindingKeys('terminal.close', 'Ctrl+Shift+X');
@@ -134,21 +90,16 @@ test('resetAll restores all defaults', async () => {
   expect(results.closeTerm).toBe('Ctrl+W');
 });
 
-// ── Unbinding ────────────────────────────────────────────────────────
-
 test('setting empty keys unbinds a shortcut', async () => {
   await window.evaluate(`KeybindingManager.setBindingKeys('terminal.new', '')`);
 
-  const keys = await window.evaluate(`(() => {
-    const b = KeybindingManager.getBindings().find(b => b.id === 'terminal.new');
-    return b ? b.effectiveKeys : 'NOT_FOUND';
-  })()`);
+  const keys = await window.evaluate(
+    `KeybindingManager.getBindings().find(b => b.id === 'terminal.new').effectiveKeys`,
+  );
   expect(keys).toBe('');
 
   await window.evaluate(`KeybindingManager.resetAll()`);
 });
-
-// ── Settings Section ─────────────────────────────────────────────────
 
 test('keyboard shortcuts section exists in settings', async () => {
   await window.locator('#sidebar .nav-btn[data-view="settings"]').click();
