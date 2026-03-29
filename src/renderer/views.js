@@ -23,7 +23,7 @@ function _lazyLoadWebview(viewName) {
 }
 
 export function switchView(viewName) {
-  const validViews = ['terminals', 'comm', 'tasks', 'knowledge', 'monitor', 'events', 'settings'];
+  const validViews = ['terminals', 'comm', 'tasks', 'knowledge', 'monitor', 'analytics', 'events', 'settings'];
   if (!validViews.includes(viewName)) return;
 
   state.activeView = viewName;
@@ -33,10 +33,14 @@ export function switchView(viewName) {
   dom.viewTasks?.classList.remove('active');
   dom.viewKnowledge?.classList.remove('active');
   dom.viewMonitor?.classList.remove('active');
+  dom.viewAnalytics?.classList.remove('active');
   dom.viewEvents?.classList.remove('active');
   dom.settingsView?.classList.remove('active');
   dom.tabBar.style.display = 'none';
 
+  if (registry.stopAnalyticsRefresh && viewName !== 'analytics') {
+    registry.stopAnalyticsRefresh();
+  }
   if (registry.stopMonitorRefresh && viewName !== 'monitor') {
     registry.stopMonitorRefresh();
   }
@@ -72,6 +76,10 @@ export function switchView(viewName) {
     case 'monitor':
       dom.viewMonitor.classList.add('active');
       if (registry.startMonitorRefresh) registry.startMonitorRefresh();
+      break;
+    case 'analytics':
+      dom.viewAnalytics.classList.add('active');
+      if (registry.startAnalyticsRefresh) registry.startAnalyticsRefresh();
       break;
     case 'events':
       dom.viewEvents.classList.add('active');
@@ -219,6 +227,12 @@ function _ensureMaxLightness(color, maxL) {
 }
 
 export function applyTheme(themeId) {
+  // Persist themeId so newly-created terminals pick up the active theme
+  // (previously only the settings UI called setSetting before applyTheme)
+  if (typeof setSetting === 'function') {
+    setSetting('themeId', themeId || null);
+  }
+
   const themeObj = typeof getThemeById === 'function' ? getThemeById(themeId) : null;
   const baseType = themeObj ? themeObj.type || 'dark' : 'dark';
 
@@ -580,6 +594,7 @@ export function updateStatusBar() {
         tasks: 'Tasks',
         knowledge: 'Agent Knowledge',
         monitor: 'Agent Monitor',
+        analytics: 'Analytics',
         events: 'Event Stream',
         settings: 'Settings',
       };

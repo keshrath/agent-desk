@@ -45,6 +45,8 @@ Electron app -- unified control center for AI coding agents.
   - `drag-drop.js` -- Drag-and-drop tab reordering
   - `notifications.js` -- Desktop notification handling, bell behavior
   - `context-menus.js` -- Context menu and confirm dialog primitives
+  - `feature-tips.js` -- Feature tip toasts for discoverability
+  - `onboarding.js` -- First-run onboarding flow
   - `popout.html` -- Pop-out terminal window template
 
 ## Commands

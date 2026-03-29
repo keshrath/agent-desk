@@ -2,7 +2,21 @@
 
 All notable changes to Agent Desk are documented in this file.
 
-## [Unreleased]
+## [1.0.1] - 2026-03-28
+
+### Changed
+
+- **Generified codebase** -- removed all personal/organization-specific references; fully open-source ready
+- **Comprehensive documentation** -- README rewrite, CONTRIBUTING.md, LICENSE, docs/ARCHITECTURE.md, docs/SETUP.md, docs/FEATURES.md
+- **Dashboard URLs configurable** -- all three dashboard URLs now editable in Settings instead of hardcoded
+- **Shell profiles** -- profiles use generic defaults; no hardcoded paths or tool-specific assumptions
+
+### Fixed
+
+- **Config hot-reload** -- file watcher correctly detects external config changes on all platforms
+- **Theme persistence** -- custom themes survive app restarts without flicker
+
+## [1.0.0] - 2026-03-27
 
 ### Added
 

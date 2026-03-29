@@ -21,6 +21,7 @@ import './system-monitor.js';
 import './batch-launcher.js';
 import './templates.js';
 import './agent-monitor.js';
+import './analytics.js';
 import './onboarding.js';
 import './feature-tips.js';
 
@@ -99,6 +100,7 @@ function cleanup() {
   state.terminals.clear();
   registry.destroySystemMonitor();
   registry.destroyAgentMonitor();
+  if (registry.destroyAnalytics) registry.destroyAnalytics();
   eventStream.destroy();
   if (state.dockview) {
     state.dockview.dispose();
@@ -494,6 +496,7 @@ document.addEventListener('DOMContentLoaded', function () {
   registry.updateStatusBar();
   registry.initSystemMonitor();
   registry.initAgentMonitor();
+  registry.initAnalytics();
 
   registry.switchView('terminals');
 
