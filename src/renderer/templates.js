@@ -377,7 +377,6 @@ const TEMPLATE_ICON_OPTIONS = [
   'cloud',
   'security',
   'speed',
-  'analytics',
   'rocket_launch',
 ];
 

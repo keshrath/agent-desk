@@ -154,26 +154,6 @@ contextBridge.exposeInMainWorld('agentDesk', {
     getCrashLogDir: () => ipcRenderer.invoke('app:getCrashLogDir'),
   },
 
-
-  // Analytics
-  analytics: {
-    saveSession: (record: {
-      session_id: string;
-      agent_name: string;
-      input_tokens: number;
-      output_tokens: number;
-      cost_usd: number;
-      tool_calls: number;
-      messages: number;
-      started_at: string;
-      ended_at: string;
-    }) => ipcRenderer.invoke('analytics:save-session', record),
-    saveToolUsage: (records: Array<{ session_id: string; tool_name: string; call_count: number }>) =>
-      ipcRenderer.invoke('analytics:save-tool-usage', records),
-    getHistory: (limit?: number) => ipcRenderer.invoke('analytics:get-history', limit),
-    getSummary: () => ipcRenderer.invoke('analytics:get-summary'),
-  },
-
   // Shell
   openExternal: (url: string) => ipcRenderer.send('shell:openExternal', url),
   openPath: (dirPath: string) => ipcRenderer.send('shell:openPath', dirPath),

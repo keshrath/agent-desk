@@ -34,7 +34,6 @@ const PROFILE_ICON_OPTIONS = [
   'language',
   'developer_mode',
   'speed',
-  'analytics',
 ];
 
 const DEFAULTS = {

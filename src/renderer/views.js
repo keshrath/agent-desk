@@ -23,7 +23,7 @@ function _lazyLoadWebview(viewName) {
 }
 
 export function switchView(viewName) {
-  const validViews = ['terminals', 'comm', 'tasks', 'knowledge', 'monitor', 'analytics', 'events', 'settings'];
+  const validViews = ['terminals', 'comm', 'tasks', 'knowledge', 'monitor', 'events', 'settings'];
   if (!validViews.includes(viewName)) return;
 
   state.activeView = viewName;
@@ -33,14 +33,10 @@ export function switchView(viewName) {
   dom.viewTasks?.classList.remove('active');
   dom.viewKnowledge?.classList.remove('active');
   dom.viewMonitor?.classList.remove('active');
-  dom.viewAnalytics?.classList.remove('active');
   dom.viewEvents?.classList.remove('active');
   dom.settingsView?.classList.remove('active');
   dom.tabBar.style.display = 'none';
 
-  if (registry.stopAnalyticsRefresh && viewName !== 'analytics') {
-    registry.stopAnalyticsRefresh();
-  }
   if (registry.stopMonitorRefresh && viewName !== 'monitor') {
     registry.stopMonitorRefresh();
   }
@@ -76,10 +72,6 @@ export function switchView(viewName) {
     case 'monitor':
       dom.viewMonitor.classList.add('active');
       if (registry.startMonitorRefresh) registry.startMonitorRefresh();
-      break;
-    case 'analytics':
-      dom.viewAnalytics.classList.add('active');
-      if (registry.startAnalyticsRefresh) registry.startAnalyticsRefresh();
       break;
     case 'events':
       dom.viewEvents.classList.add('active');
@@ -227,10 +219,11 @@ function _ensureMaxLightness(color, maxL) {
 }
 
 export function applyTheme(themeId) {
-  // Persist themeId so newly-created terminals pick up the active theme
-  // (previously only the settings UI called setSetting before applyTheme)
-  if (typeof setSetting === 'function') {
-    setSetting('themeId', themeId || null);
+  if (typeof setSetting === 'function' && typeof getSetting === 'function') {
+    const current = getSetting('themeId');
+    if (current !== themeId) {
+      setSetting('themeId', themeId || null);
+    }
   }
 
   const themeObj = typeof getThemeById === 'function' ? getThemeById(themeId) : null;
@@ -249,53 +242,20 @@ export function applyTheme(themeId) {
     termViews.classList.toggle('dockview-theme-light', baseType !== 'dark');
   }
 
+  // Sync dark/light mode to embedded dashboards
+  // Don't override individual colors — dashboards have their own complete theme systems
   const safeTheme = baseType === 'dark' ? 'dark' : 'light';
-
-  // Build full color payload from theme object for dashboard sync
-  const themeColors = {};
-  if (themeObj && themeObj.colors) {
-    const c = themeObj.colors;
-    themeColors.bg = c.background;
-    themeColors.bgSurface = c.surface;
-    themeColors.bgElevated = c.surfaceHover || c.surface;
-    themeColors.bgHover = c.surfaceHover || c.surface;
-    themeColors.border = c.border;
-    themeColors.text = c.text;
-    themeColors.textSecondary = c.textSecondary || c.text;
-    themeColors.textMuted = c.textSecondary;
-    themeColors.textDim = c.textSecondary;
-    themeColors.accent = c.accent || c.primary;
-    themeColors.accentHover = c.accentHover || c.accent || c.primary;
-    themeColors.accentDim = c.primary;
-    themeColors.accentSolid = c.primary;
-  }
-  themeColors.isDark = baseType === 'dark';
-
-  if (baseType === 'dark') {
-    if (themeColors.text) themeColors.text = _ensureMinLightness(themeColors.text, 0.7);
-    if (themeColors.textSecondary) themeColors.textSecondary = _ensureMinLightness(themeColors.textSecondary, 0.55);
-    if (themeColors.textMuted) themeColors.textMuted = _ensureMinLightness(themeColors.textMuted, 0.45);
-    if (themeColors.textDim) themeColors.textDim = _ensureMinLightness(themeColors.textDim, 0.45);
-    themeColors.shadow = '0 2px 8px rgba(0,0,0,0.4)';
-  } else {
-    if (themeColors.text) themeColors.text = _ensureMaxLightness(themeColors.text, 0.3);
-    if (themeColors.textSecondary) themeColors.textSecondary = _ensureMaxLightness(themeColors.textSecondary, 0.4);
-    if (themeColors.textMuted) themeColors.textMuted = _ensureMaxLightness(themeColors.textMuted, 0.5);
-    if (themeColors.textDim) themeColors.textDim = _ensureMaxLightness(themeColors.textDim, 0.5);
-    themeColors.shadow = '0 2px 8px rgba(0,0,0,0.1)';
-  }
-
-  const themeScript = `(function(t, colors) {
-    window.__agentDeskLastSyncedTheme = t;
+  const themeScript = `(function(t) {
     document.body.className = document.body.className.replace(/theme-\\w+/, '') + ' theme-' + t;
     document.documentElement.setAttribute('data-theme', t);
     localStorage.setItem('agent-comm-theme', t);
     localStorage.setItem('agent-tasks-theme', t);
     localStorage.setItem('agent-knowledge-theme', t);
+    var toggle = document.getElementById('theme-toggle');
+    if (toggle) toggle.style.display = 'none';
     var icon = document.querySelector('.theme-icon');
     if (icon) icon.textContent = t === 'dark' ? 'light_mode' : 'dark_mode';
-    window.postMessage({ type: 'theme-sync', colors: colors }, '*');
-  })(${JSON.stringify(safeTheme)}, ${JSON.stringify(themeColors)})`;
+  })(${JSON.stringify(safeTheme)})`;
   const webviews = document.querySelectorAll('webview');
   webviews.forEach((wv) => {
     try {
@@ -594,7 +554,6 @@ export function updateStatusBar() {
         tasks: 'Tasks',
         knowledge: 'Agent Knowledge',
         monitor: 'Agent Monitor',
-        analytics: 'Analytics',
         events: 'Event Stream',
         settings: 'Settings',
       };

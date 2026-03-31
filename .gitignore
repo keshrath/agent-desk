@@ -8,7 +8,11 @@ release/
 .DS_Store
 Thumbs.db
 test-results/
+test-screenshots/
+test-user-data*/
 playwright-report/
 output/
 recordings/
 _patch*.py
+docs/.vitepress/cache/
+docs/.vitepress/dist/

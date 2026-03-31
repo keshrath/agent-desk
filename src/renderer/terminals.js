@@ -1140,6 +1140,7 @@ export function updateTabLifecycleButtons(terminalId) {
 registry.createTerminalFromProfile = createTerminalFromProfile;
 registry._resolveTermFont = _resolveTermFont;
 registry._updateSidebarBadge = _updateSidebarBadge;
+registry._updateEmptyState = _updateEmptyState;
 registry.handleTerminalRestart = handleTerminalRestart;
 registry.updateTabLifecycleButtons = updateTabLifecycleButtons;
 registry._stopTaskBadgePolling = _stopTaskBadgePolling;

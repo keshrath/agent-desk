@@ -9,7 +9,7 @@
 
 For a complete guide, see the **[User Manual](docs/USER-MANUAL.md)**.
 
-![Agent Desk](docs/screenshots/overview.png)
+![Agent Desk](docs/public/screenshots/overview.png)
 
 ## Why
 

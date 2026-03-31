@@ -10,14 +10,6 @@ import http from 'http';
 import { TerminalManager, HistoryEntry } from './terminal-manager.js';
 import { startMonitoring, stopMonitoring, getSystemStats, onStatsUpdate } from './system-monitor.js';
 import { setupCrashHandlers, writeCrashLog, hasRecentCrashLogs, CRASH_LOG_DIR } from './crash-reporter.js';
-import {
-  initAnalyticsDb,
-  saveSessionCost,
-  saveToolUsage,
-  getHistory as getAnalyticsHistory,
-  getSummary as getAnalyticsSummary,
-  flushAnalytics,
-} from './analytics-db.js';
 
 setupCrashHandlers();
 
@@ -459,7 +451,6 @@ function createWindow(): BrowserWindow {
   let trayNotified = false;
   win.on('close', (e) => {
     saveSession();
-  flushAnalytics();
     if (tray) {
       e.preventDefault();
       win.hide();
@@ -619,7 +610,6 @@ function setupIPC(): void {
 
   ipcMain.handle('session:autoSave', () => {
     saveSession();
-  flushAnalytics();
     return true;
   });
 
@@ -920,53 +910,6 @@ function setupIPC(): void {
   });
 
   ipcMain.handle('app:getCrashLogDir', () => CRASH_LOG_DIR);
-
-  // ---------------------------------------------------------------------------
-  // Analytics Persistence
-  // ---------------------------------------------------------------------------
-
-  ipcMain.handle(
-    'analytics:save-session',
-    (
-      _e,
-      record: {
-        session_id: string;
-        agent_name: string;
-        input_tokens: number;
-        output_tokens: number;
-        cost_usd: number;
-        tool_calls: number;
-        messages: number;
-        started_at: string;
-        ended_at: string;
-      },
-    ) => {
-      return saveSessionCost(record);
-    },
-  );
-
-  ipcMain.handle(
-    'analytics:save-tool-usage',
-    (
-      _e,
-      records: Array<{
-        session_id: string;
-        tool_name: string;
-        call_count: number;
-      }>,
-    ) => {
-      saveToolUsage(records);
-      return true;
-    },
-  );
-
-  ipcMain.handle('analytics:get-history', (_e, limit?: number) => {
-    return getAnalyticsHistory(limit);
-  });
-
-  ipcMain.handle('analytics:get-summary', () => {
-    return getAnalyticsSummary();
-  });
 }
 
 // ---------------------------------------------------------------------------
@@ -1094,7 +1037,6 @@ function sendUpdateStatus(type: string, message: string): void {
 
 app.whenReady().then(async () => {
   loadHistory();
-  initAnalyticsDb();
   setupIPC();
   await ensureDashboards();
   mainWindow = createWindow();
@@ -1163,7 +1105,6 @@ app.on('window-all-closed', () => {
 
 app.on('before-quit', () => {
   saveSession();
-  flushAnalytics();
   stopMonitoring();
   if (saveInterval) {
     clearInterval(saveInterval);
