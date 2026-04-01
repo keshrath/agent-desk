@@ -35,6 +35,7 @@ function _lazyLoadWebview(viewName) {
     comm: 'webview-comm',
     tasks: 'webview-tasks',
     knowledge: 'webview-knowledge',
+    discover: 'webview-discover',
   };
   const webviewId = webviewMap[viewName];
   if (!webviewId) return;
@@ -45,7 +46,7 @@ function _lazyLoadWebview(viewName) {
 }
 
 export function switchView(viewName) {
-  const validViews = ['terminals', 'comm', 'tasks', 'knowledge', 'monitor', 'events', 'settings'];
+  const validViews = ['terminals', 'comm', 'tasks', 'knowledge', 'discover', 'monitor', 'events', 'settings'];
   if (!validViews.includes(viewName)) return;
 
   state.activeView = viewName;
@@ -54,6 +55,7 @@ export function switchView(viewName) {
   dom.viewComm?.classList.remove('active');
   dom.viewTasks?.classList.remove('active');
   dom.viewKnowledge?.classList.remove('active');
+  dom.viewDiscover?.classList.remove('active');
   dom.viewMonitor?.classList.remove('active');
   dom.viewEvents?.classList.remove('active');
   dom.settingsView?.classList.remove('active');
@@ -93,6 +95,11 @@ export function switchView(viewName) {
       _lazyLoadWebview('knowledge');
       if (dom.viewKnowledge) dom.viewKnowledge.classList.add('active');
       _resyncWebviewTheme('webview-knowledge');
+      break;
+    case 'discover':
+      _lazyLoadWebview('discover');
+      if (dom.viewDiscover) dom.viewDiscover.classList.add('active');
+      _resyncWebviewTheme('webview-discover');
       break;
     case 'monitor':
       dom.viewMonitor.classList.add('active');
@@ -151,6 +158,7 @@ export function applySettings() {
     'webview-comm': getSetting('agentCommUrl'),
     'webview-tasks': getSetting('agentTasksUrl'),
     'webview-knowledge': getSetting('agentKnowledgeUrl'),
+    'webview-discover': getSetting('agentDiscoverUrl'),
   };
   for (const [wvId, url] of Object.entries(urlMap)) {
     if (!url) continue;
@@ -242,6 +250,7 @@ function _buildDashboardThemeScript(t, c) {
     localStorage.setItem('agent-comm-theme', t);
     localStorage.setItem('agent-tasks-theme', t);
     localStorage.setItem('agent-knowledge-theme', t);
+    localStorage.setItem('agent-discover-theme', t);
     var toggle = document.getElementById('theme-toggle');
     if (toggle) toggle.style.display = 'none';
     var icon = document.querySelector('.theme-icon');
@@ -448,6 +457,7 @@ export function setupWebviewStates() {
     { id: 'webview-comm', container: 'view-comm', label: 'Agent Comm', port: '3421' },
     { id: 'webview-tasks', container: 'view-tasks', label: 'Tasks', port: '3422' },
     { id: 'webview-knowledge', container: 'view-knowledge', label: 'Agent Knowledge', port: '3423' },
+    { id: 'webview-discover', container: 'view-discover', label: 'Discover', port: '3424' },
   ];
 
   webviews.forEach((wv) => {
@@ -565,6 +575,7 @@ export function updateStatusBar() {
         comm: 'Communication',
         tasks: 'Tasks',
         knowledge: 'Agent Knowledge',
+        discover: 'Discover',
         monitor: 'Agent Monitor',
         events: 'Event Stream',
         settings: 'Settings',
@@ -771,9 +782,10 @@ const _serviceViewMap = {
   comm: { btnView: 'comm', webviewId: 'webview-comm', containerId: 'view-comm' },
   tasks: { btnView: 'tasks', webviewId: 'webview-tasks', containerId: 'view-tasks' },
   knowledge: { btnView: 'knowledge', webviewId: 'webview-knowledge', containerId: 'view-knowledge' },
+  discover: { btnView: 'discover', webviewId: 'webview-discover', containerId: 'view-discover' },
 };
 
-let _lastDashboardStatus = { comm: 'unknown', tasks: 'unknown', knowledge: 'unknown' };
+let _lastDashboardStatus = { comm: 'unknown', tasks: 'unknown', knowledge: 'unknown', discover: 'unknown' };
 
 function _createStatusDots() {
   for (const [key, info] of Object.entries(_serviceViewMap)) {

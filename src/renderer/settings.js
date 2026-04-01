@@ -50,6 +50,7 @@ const DEFAULTS = {
   agentCommUrl: 'http://localhost:3421',
   agentTasksUrl: 'http://localhost:3422',
   agentKnowledgeUrl: 'http://localhost:3423',
+  agentDiscoverUrl: 'http://localhost:3424',
   // Appearance
   sidebarPosition: 'left',
   showStatusBar: true,
@@ -189,6 +190,7 @@ const SECTIONS = [
       { key: 'agentCommUrl', label: 'Agent Comm URL', type: 'text' },
       { key: 'agentTasksUrl', label: 'Agent Tasks URL', type: 'text' },
       { key: 'agentKnowledgeUrl', label: 'Agent Knowledge URL', type: 'text' },
+      { key: 'agentDiscoverUrl', label: 'Agent Discover URL', type: 'text' },
     ],
   },
   {

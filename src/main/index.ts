@@ -45,18 +45,21 @@ interface DashboardStatus {
   comm: ServiceStatus;
   tasks: ServiceStatus;
   knowledge: ServiceStatus;
+  discover: ServiceStatus;
 }
 
 const dashboardStatus: DashboardStatus = {
   comm: 'unknown',
   tasks: 'unknown',
   knowledge: 'unknown',
+  discover: 'unknown',
 };
 
 const SERVICE_KEY_MAP: Record<string, keyof DashboardStatus> = {
   'agent-comm': 'comm',
   'agent-tasks': 'tasks',
   'agent-knowledge': 'knowledge',
+  'agent-discover': 'discover',
 };
 
 // ---------------------------------------------------------------------------
@@ -222,6 +225,12 @@ const DASHBOARDS = [
     port: 3423,
     dir: findPackageDir('agent-knowledge', join(homedir(), '.claude', 'mcp-servers', 'agent-knowledge')),
     start: 'node dist/dashboard.js',
+  },
+  {
+    name: 'agent-discover',
+    port: 3424,
+    dir: findPackageDir('agent-discover', join(homedir(), '.claude', 'mcp-servers', 'agent-discover')),
+    start: 'node dist/server.js',
   },
 ];
 

@@ -81,6 +81,9 @@
             <button class="nav-btn" data-view="knowledge" data-tooltip="Agent Knowledge" aria-label="Agent Knowledge">
               <span class="material-symbols-outlined">psychology</span>
             </button>
+            <button class="nav-btn" data-view="discover" data-tooltip="Discover" aria-label="Discover">
+              <span class="material-symbols-outlined">widgets</span>
+            </button>
             <button class="nav-btn" data-view="monitor" data-tooltip="Agent Monitor" aria-label="Agent Monitor">
               <span class="material-symbols-outlined">hub</span>
             </button>
@@ -151,6 +154,10 @@
 
             <div id="view-knowledge" class="webview-container">
               <webview id="webview-knowledge" data-src="http://localhost:3423"></webview>
+            </div>
+
+            <div id="view-discover" class="webview-container">
+              <webview id="webview-discover" data-src="http://localhost:3424"></webview>
             </div>
 
             <div id="view-monitor" class="view agent-monitor"></div>

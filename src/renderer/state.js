@@ -65,6 +65,9 @@ export const dom = {
   get viewKnowledge() {
     return document.getElementById('view-knowledge');
   },
+  get viewDiscover() {
+    return document.getElementById('view-discover');
+  },
   get viewMonitor() {
     return document.getElementById('view-monitor');
   },
