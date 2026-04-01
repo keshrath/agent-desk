@@ -8,8 +8,6 @@
 
 'use strict';
 
-import { registry } from './state.js';
-
 // The dashboard webview loading/error states are handled in views.js
 // (setupWebviewStates). Dashboard injectors are loaded separately.
 

@@ -99,7 +99,6 @@ function cleanup() {
   state.terminals.clear();
   registry.destroySystemMonitor();
   registry.destroyAgentMonitor();
-  if (registry.destroyAnalytics) registry.destroyAnalytics();
   eventStream.destroy();
   if (state.dockview) {
     state.dockview.dispose();
@@ -462,7 +461,7 @@ function setupRendererErrorHandlers() {
 // Initialization
 // -----------------------------------------------------------------------------
 
-document.addEventListener('DOMContentLoaded', function () {
+document.addEventListener('DOMContentLoaded', async function () {
   setupGlobalListeners();
   registry.setupKeyboardShortcuts();
   registry.setupDataHandlers();
@@ -484,7 +483,7 @@ document.addEventListener('DOMContentLoaded', function () {
   registry.initDockview();
 
   if (typeof initSettings === 'function') {
-    initSettings(document.getElementById('settings-panel'));
+    await initSettings(document.getElementById('settings-panel'));
   }
 
   registry.applySettings();

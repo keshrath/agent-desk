@@ -189,24 +189,38 @@ if (!gotLock) {
   });
 }
 
+// Resolve bundled MCP server directory, falling back to user's local install
+function findPackageDir(name: string, fallback: string): string {
+  const candidates = [
+    join(__dirname, '..', 'node_modules', name),
+    join(__dirname, '..', '..', 'node_modules', name),
+    join(process.resourcesPath || '', 'app', 'node_modules', name),
+    join(process.resourcesPath || '', 'app.asar.unpacked', 'node_modules', name),
+  ];
+  for (const dir of candidates) {
+    if (existsSync(join(dir, 'package.json'))) return dir;
+  }
+  return fallback;
+}
+
 // Dashboard services to auto-start
 const DASHBOARDS = [
   {
     name: 'agent-comm',
     port: 3421,
-    dir: join(homedir(), '.claude', 'mcp-servers', 'agent-comm'),
+    dir: findPackageDir('agent-comm', join(homedir(), '.claude', 'mcp-servers', 'agent-comm')),
     start: 'node dist/server.js',
   },
   {
     name: 'agent-tasks',
     port: 3422,
-    dir: join(homedir(), '.claude', 'mcp-servers', 'agent-tasks'),
+    dir: findPackageDir('agent-tasks', join(homedir(), '.claude', 'mcp-servers', 'agent-tasks')),
     start: 'node dist/server.js',
   },
   {
     name: 'agent-knowledge',
     port: 3423,
-    dir: join(homedir(), '.claude', 'mcp-servers', 'agent-knowledge'),
+    dir: findPackageDir('agent-knowledge', join(homedir(), '.claude', 'mcp-servers', 'agent-knowledge')),
     start: 'node dist/dashboard.js',
   },
 ];

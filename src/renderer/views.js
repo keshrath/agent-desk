@@ -8,6 +8,28 @@ import { state, dom, getTermTheme, getTermFontWeight, registry } from './state.j
 
 // View Management
 
+function _resyncWebviewTheme(webviewId) {
+  const wv = document.getElementById(webviewId);
+  if (!wv || !wv.src) return;
+  const themeId = typeof getSetting === 'function' ? getSetting('themeId') : null;
+  const themeObj = typeof getThemeById === 'function' ? getThemeById(themeId) : null;
+  if (!themeObj || !themeObj.colors) return;
+  const c = themeObj.colors;
+  const baseType = themeObj.type || 'dark';
+  const t = baseType === 'dark' ? 'dark' : 'light';
+  const script = _buildDashboardThemeScript(t, c);
+  const run = () => {
+    try {
+      wv.executeJavaScript(script).catch(() => {});
+    } catch (_e) {
+      /* webview not ready */
+    }
+  };
+  run();
+  setTimeout(run, 1000);
+  setTimeout(run, 3000);
+}
+
 function _lazyLoadWebview(viewName) {
   const webviewMap = {
     comm: 'webview-comm',
@@ -60,14 +82,17 @@ export function switchView(viewName) {
     case 'comm':
       _lazyLoadWebview('comm');
       dom.viewComm.classList.add('active');
+      _resyncWebviewTheme('webview-comm');
       break;
     case 'tasks':
       _lazyLoadWebview('tasks');
       dom.viewTasks.classList.add('active');
+      _resyncWebviewTheme('webview-tasks');
       break;
     case 'knowledge':
       _lazyLoadWebview('knowledge');
       if (dom.viewKnowledge) dom.viewKnowledge.classList.add('active');
+      _resyncWebviewTheme('webview-knowledge');
       break;
     case 'monitor':
       dom.viewMonitor.classList.add('active');
@@ -155,69 +180,6 @@ export function applySettings() {
   applyTheme(getSetting('themeId') || null);
 }
 
-// ---------------------------------------------------------------------------
-// Color contrast helpers for dashboard theme sync
-// ---------------------------------------------------------------------------
-
-function _hexToHsl(hex) {
-  hex = hex.replace('#', '');
-  if (hex.length === 3) hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
-  const r = parseInt(hex.slice(0, 2), 16) / 255;
-  const g = parseInt(hex.slice(2, 4), 16) / 255;
-  const b = parseInt(hex.slice(4, 6), 16) / 255;
-  const max = Math.max(r, g, b),
-    min = Math.min(r, g, b);
-  const l = (max + min) / 2;
-  if (max === min) return { h: 0, s: 0, l };
-  const d = max - min;
-  const s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-  let h;
-  if (max === r) h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
-  else if (max === g) h = ((b - r) / d + 2) / 6;
-  else h = ((r - g) / d + 4) / 6;
-  return { h, s, l };
-}
-
-function _hslToHex(h, s, l) {
-  function hue2rgb(p, q, t) {
-    if (t < 0) t += 1;
-    if (t > 1) t -= 1;
-    if (t < 1 / 6) return p + (q - p) * 6 * t;
-    if (t < 1 / 2) return q;
-    if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
-    return p;
-  }
-  let r, g, b;
-  if (s === 0) {
-    r = g = b = l;
-  } else {
-    const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
-    const p = 2 * l - q;
-    r = hue2rgb(p, q, h + 1 / 3);
-    g = hue2rgb(p, q, h);
-    b = hue2rgb(p, q, h - 1 / 3);
-  }
-  const toHex = (v) =>
-    Math.round(v * 255)
-      .toString(16)
-      .padStart(2, '0');
-  return '#' + toHex(r) + toHex(g) + toHex(b);
-}
-
-function _ensureMinLightness(color, minL) {
-  if (!color || !color.startsWith('#')) return color;
-  const hsl = _hexToHsl(color);
-  if (hsl.l < minL) return _hslToHex(hsl.h, hsl.s, minL);
-  return color;
-}
-
-function _ensureMaxLightness(color, maxL) {
-  if (!color || !color.startsWith('#')) return color;
-  const hsl = _hexToHsl(color);
-  if (hsl.l > maxL) return _hslToHex(hsl.h, hsl.s, maxL);
-  return color;
-}
-
 export function applyTheme(themeId) {
   if (typeof setSetting === 'function' && typeof getSetting === 'function') {
     const current = getSetting('themeId');
@@ -242,20 +204,8 @@ export function applyTheme(themeId) {
     termViews.classList.toggle('dockview-theme-light', baseType !== 'dark');
   }
 
-  // Sync dark/light mode to embedded dashboards
-  // Don't override individual colors — dashboards have their own complete theme systems
   const safeTheme = baseType === 'dark' ? 'dark' : 'light';
-  const themeScript = `(function(t) {
-    document.body.className = document.body.className.replace(/theme-\\w+/, '') + ' theme-' + t;
-    document.documentElement.setAttribute('data-theme', t);
-    localStorage.setItem('agent-comm-theme', t);
-    localStorage.setItem('agent-tasks-theme', t);
-    localStorage.setItem('agent-knowledge-theme', t);
-    var toggle = document.getElementById('theme-toggle');
-    if (toggle) toggle.style.display = 'none';
-    var icon = document.querySelector('.theme-icon');
-    if (icon) icon.textContent = t === 'dark' ? 'light_mode' : 'dark_mode';
-  })(${JSON.stringify(safeTheme)})`;
+  const themeScript = _buildDashboardThemeScript(safeTheme, themeObj ? themeObj.colors : null);
   const webviews = document.querySelectorAll('webview');
   webviews.forEach((wv) => {
     try {
@@ -271,6 +221,67 @@ export function applyTheme(themeId) {
     ts.term.options.theme = newTermTheme;
     ts.term.options.fontWeight = newFontWeight;
   }
+}
+
+function _buildDashboardThemeScript(t, c) {
+  const colors = {};
+  if (c) {
+    colors.bg = c.background;
+    colors.surface = c.surface;
+    colors.surfaceHover = c.surfaceHover || c.surface;
+    colors.border = c.border;
+    colors.text = c.text;
+    colors.textSecondary = c.textSecondary || c.text;
+    colors.accent = c.accent || c.primary;
+    colors.accentHover = c.accentHover || colors.accent;
+    colors.onPrimary = c.onPrimary || (t === 'dark' ? '#1a1d23' : '#ffffff');
+  }
+  return `(function(t, c) {
+    document.body.className = document.body.className.replace(/theme-\\w+/, '') + ' theme-' + t;
+    document.documentElement.setAttribute('data-theme', t);
+    localStorage.setItem('agent-comm-theme', t);
+    localStorage.setItem('agent-tasks-theme', t);
+    localStorage.setItem('agent-knowledge-theme', t);
+    var toggle = document.getElementById('theme-toggle');
+    if (toggle) toggle.style.display = 'none';
+    var icon = document.querySelector('.theme-icon');
+    if (icon) icon.textContent = t === 'dark' ? 'light_mode' : 'dark_mode';
+    if (!c || !c.bg) return;
+    var r = document.body.style;
+    r.setProperty('--bg', c.bg);
+    r.setProperty('--bg-surface', c.surface);
+    r.setProperty('--bg-elevated', c.surfaceHover);
+    r.setProperty('--bg-hover', c.surfaceHover);
+    r.setProperty('--bg-inset', c.bg);
+    r.setProperty('--border', c.border);
+    r.setProperty('--border-light', c.border);
+    r.setProperty('--text', c.text);
+    r.setProperty('--text-secondary', c.textSecondary);
+    // Muted/dim: blend text + textSecondary for readable but dimmed appearance
+    var tR = parseInt(c.text.slice(1,3),16), tG = parseInt(c.text.slice(3,5),16), tB = parseInt(c.text.slice(5,7),16);
+    var sR = parseInt(c.textSecondary.slice(1,3),16), sG = parseInt(c.textSecondary.slice(3,5),16), sB = parseInt(c.textSecondary.slice(5,7),16);
+    var muted = '#' + [Math.round((tR+sR)/2), Math.round((tG+sG)/2), Math.round((tB+sB)/2)].map(function(v){return v.toString(16).padStart(2,'0')}).join('');
+    r.setProperty('--text-muted', muted);
+    r.setProperty('--text-dim', c.textSecondary);
+    r.setProperty('--accent', c.accent);
+    r.setProperty('--accent-hover', c.accentHover);
+    var rgb = parseInt(c.accent.slice(1,3),16)+','+parseInt(c.accent.slice(3,5),16)+','+parseInt(c.accent.slice(5,7),16);
+    r.setProperty('--accent-dim', 'rgba('+rgb+',0.15)');
+    r.setProperty('--accent-glow', 'rgba('+rgb+',0.35)');
+    r.setProperty('--accent-solid', c.onPrimary);
+    r.setProperty('--shadow-1', t==='dark' ? '0 1px 3px rgba(0,0,0,0.4)' : '0 1px 3px rgba(0,0,0,0.1)');
+    r.setProperty('--shadow-2', t==='dark' ? '0 4px 12px rgba(0,0,0,0.5)' : '0 4px 12px rgba(0,0,0,0.15)');
+    var style = document.getElementById('agent-desk-theme-overrides');
+    if (!style) { style = document.createElement('style'); style.id = 'agent-desk-theme-overrides'; document.head.appendChild(style); }
+    style.textContent =
+      '.nav-badge, .importance-badge, .stuck-badge, .stage-badge, .priority-pill, .tag-pill { background: ' + c.accent + ' !important; }' +
+      'a, .nav-item.active, .nav-link.active, .tab.active { color: ' + c.accent + ' !important; }' +
+      'h1, h2, h3, .header-title, .dashboard-title, .stat-value, .section-heading, .card-title { color: ' + c.text + ' !important; }' +
+      '.version, .status-text, .stat-label, .meta, .subtitle, .hint, time, .timestamp { color: ' + muted + ' !important; }' +
+      '.connected-badge, .status-badge { color: ' + c.accent + ' !important; }' +
+      'input, select, textarea, .search-input { background: ' + c.surface + ' !important; color: ' + c.text + ' !important; border-color: ' + c.border + ' !important; }' +
+      'input::placeholder { color: ' + c.textSecondary + ' !important; }';
+  })(${JSON.stringify(t)}, ${JSON.stringify(colors)})`;
 }
 
 // Sidebar setup
@@ -310,9 +321,10 @@ export function setupAgentButton() {
 export function setupThemeToggle() {
   const webviews = document.querySelectorAll('webview');
   webviews.forEach((wv) => {
+    const syncTheme = () => applyTheme(getSetting('themeId') || null);
+    wv.addEventListener('did-finish-load', syncTheme);
+    wv.addEventListener('dom-ready', () => setTimeout(syncTheme, 1000));
     wv.addEventListener('did-finish-load', () => {
-      applyTheme(getSetting('themeId') || null);
-
       // Watch for theme changes inside the webview and sync back to shell
       wv.executeJavaScript(
         `
