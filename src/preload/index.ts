@@ -154,6 +154,67 @@ contextBridge.exposeInMainWorld('agentDesk', {
     getCrashLogDir: () => ipcRenderer.invoke('app:getCrashLogDir'),
   },
 
+  // Native dashboard data — agent-comm
+  comm: {
+    getState: () => ipcRenderer.invoke('comm:state'),
+    agents: () => ipcRenderer.invoke('comm:agents'),
+    messages: (limit?: number) => ipcRenderer.invoke('comm:messages', limit),
+    channels: () => ipcRenderer.invoke('comm:channels'),
+    stateEntries: () => ipcRenderer.invoke('comm:state-entries'),
+    feed: (limit?: number) => ipcRenderer.invoke('comm:feed', limit),
+    onUpdate: (callback: (data: unknown) => void) => {
+      const listener = (_e: unknown, data: unknown) => callback(data);
+      ipcRenderer.on('comm:update', listener);
+      return () => ipcRenderer.removeListener('comm:update', listener);
+    },
+  },
+
+  // Native dashboard data — agent-tasks
+  tasks: {
+    getState: () => ipcRenderer.invoke('tasks:state'),
+    list: (filter?: Record<string, unknown>) => ipcRenderer.invoke('tasks:list', filter),
+    get: (id: string) => ipcRenderer.invoke('tasks:get', id),
+    search: (query: string) => ipcRenderer.invoke('tasks:search', query),
+    onUpdate: (callback: (data: unknown) => void) => {
+      const listener = (_e: unknown, data: unknown) => callback(data);
+      ipcRenderer.on('tasks:update', listener);
+      return () => ipcRenderer.removeListener('tasks:update', listener);
+    },
+  },
+
+  // Native dashboard data — agent-knowledge
+  knowledge: {
+    entries: (category?: string) => ipcRenderer.invoke('knowledge:entries', category),
+    read: (category: string, name: string) => ipcRenderer.invoke('knowledge:read', category, name),
+    search: (query: string) => ipcRenderer.invoke('knowledge:search', query),
+    sessions: () => ipcRenderer.invoke('knowledge:sessions'),
+    session: (sessionId: string, project?: string) => ipcRenderer.invoke('knowledge:session', sessionId, project),
+    onUpdate: (callback: (data: unknown) => void) => {
+      const listener = (_e: unknown, data: unknown) => callback(data);
+      ipcRenderer.on('knowledge:update', listener);
+      return () => ipcRenderer.removeListener('knowledge:update', listener);
+    },
+  },
+
+  // Native dashboard data — agent-discover
+  discover: {
+    getState: () => ipcRenderer.invoke('discover:state'),
+    servers: () => ipcRenderer.invoke('discover:servers'),
+    server: (id: string) => ipcRenderer.invoke('discover:server', id),
+    browse: (query?: string) => ipcRenderer.invoke('discover:browse', query),
+    activate: (id: string) => ipcRenderer.invoke('discover:activate', id),
+    deactivate: (id: string) => ipcRenderer.invoke('discover:deactivate', id),
+    delete: (id: string) => ipcRenderer.invoke('discover:delete', id),
+    secrets: (serverId: string) => ipcRenderer.invoke('discover:secrets', serverId),
+    metrics: (serverId?: string) => ipcRenderer.invoke('discover:metrics', serverId),
+    health: (serverId: string) => ipcRenderer.invoke('discover:health', serverId),
+    onUpdate: (callback: (data: unknown) => void) => {
+      const listener = (_e: unknown, data: unknown) => callback(data);
+      ipcRenderer.on('discover:update', listener);
+      return () => ipcRenderer.removeListener('discover:update', listener);
+    },
+  },
+
   // Shell
   openExternal: (url: string) => ipcRenderer.send('shell:openExternal', url),
   openPath: (dirPath: string) => ipcRenderer.send('shell:openPath', dirPath),

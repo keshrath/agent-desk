@@ -62,6 +62,7 @@ const rendererGlobals = {
   importThemeJSON: 'readonly',
   saveCustomTheme: 'readonly',
   renderTemplatesSection: 'readonly',
+  confirm: 'readonly',
 };
 
 const rendererRules = {
@@ -109,6 +110,10 @@ const esModuleFiles = [
   'src/renderer/global-search.js',
   'src/renderer/onboarding.js',
   'src/renderer/feature-tips.js',
+  'src/renderer/views/comm-view.js',
+  'src/renderer/views/tasks-view.js',
+  'src/renderer/views/knowledge-view.js',
+  'src/renderer/views/discover-view.js',
 ];
 
 export default [

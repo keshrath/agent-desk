@@ -5,6 +5,19 @@
 'use strict';
 
 import { state, dom, getTermTheme, getTermFontWeight, registry } from './state.js';
+import { initCommView, destroyCommView } from './views/comm-view.js';
+import { initTasksView, destroyTasksView } from './views/tasks-view.js';
+import { initKnowledgeView, destroyKnowledgeView } from './views/knowledge-view.js';
+import { initDiscoverView, destroyDiscoverView } from './views/discover-view.js';
+
+// Native view flags (set to false to fall back to webview)
+const useNativeComm = true;
+const useNativeTasks = true;
+const useNativeKnowledge = true;
+const useNativeDiscover = true;
+
+// Track which native views are initialized
+const _nativeViewsInit = { comm: false, tasks: false, knowledge: false, discover: false };
 
 // View Management
 
@@ -82,24 +95,56 @@ export function switchView(viewName) {
       }
       break;
     case 'comm':
-      _lazyLoadWebview('comm');
-      dom.viewComm.classList.add('active');
-      _resyncWebviewTheme('webview-comm');
+      if (useNativeComm) {
+        dom.viewComm.classList.add('active');
+        if (!_nativeViewsInit.comm) {
+          _nativeViewsInit.comm = true;
+          initCommView(dom.viewComm);
+        }
+      } else {
+        _lazyLoadWebview('comm');
+        dom.viewComm.classList.add('active');
+        _resyncWebviewTheme('webview-comm');
+      }
       break;
     case 'tasks':
-      _lazyLoadWebview('tasks');
-      dom.viewTasks.classList.add('active');
-      _resyncWebviewTheme('webview-tasks');
+      if (useNativeTasks) {
+        dom.viewTasks.classList.add('active');
+        if (!_nativeViewsInit.tasks) {
+          _nativeViewsInit.tasks = true;
+          initTasksView(dom.viewTasks);
+        }
+      } else {
+        _lazyLoadWebview('tasks');
+        dom.viewTasks.classList.add('active');
+        _resyncWebviewTheme('webview-tasks');
+      }
       break;
     case 'knowledge':
-      _lazyLoadWebview('knowledge');
-      if (dom.viewKnowledge) dom.viewKnowledge.classList.add('active');
-      _resyncWebviewTheme('webview-knowledge');
+      if (useNativeKnowledge) {
+        if (dom.viewKnowledge) dom.viewKnowledge.classList.add('active');
+        if (!_nativeViewsInit.knowledge) {
+          _nativeViewsInit.knowledge = true;
+          initKnowledgeView(dom.viewKnowledge);
+        }
+      } else {
+        _lazyLoadWebview('knowledge');
+        if (dom.viewKnowledge) dom.viewKnowledge.classList.add('active');
+        _resyncWebviewTheme('webview-knowledge');
+      }
       break;
     case 'discover':
-      _lazyLoadWebview('discover');
-      if (dom.viewDiscover) dom.viewDiscover.classList.add('active');
-      _resyncWebviewTheme('webview-discover');
+      if (useNativeDiscover) {
+        if (dom.viewDiscover) dom.viewDiscover.classList.add('active');
+        if (!_nativeViewsInit.discover) {
+          _nativeViewsInit.discover = true;
+          initDiscoverView(dom.viewDiscover);
+        }
+      } else {
+        _lazyLoadWebview('discover');
+        if (dom.viewDiscover) dom.viewDiscover.classList.add('active');
+        _resyncWebviewTheme('webview-discover');
+      }
       break;
     case 'monitor':
       dom.viewMonitor.classList.add('active');
