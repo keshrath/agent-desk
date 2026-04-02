@@ -9,14 +9,6 @@ import { TerminalManager, HistoryEntry } from './terminal-manager.js';
 import { startMonitoring, stopMonitoring, getSystemStats, onStatsUpdate } from './system-monitor.js';
 import { setupCrashHandlers, writeCrashLog, hasRecentCrashLogs, CRASH_LOG_DIR } from './crash-reporter.js';
 import { autoConfigureMcpServers, detectInstalledTools } from './mcp-autoconfig.js';
-import {
-  discoverPlugins,
-  registerPluginProtocol,
-  initPlugins,
-  destroyPlugins,
-  setupPluginIPC,
-  type LoadedPlugin,
-} from './plugin-system.js';
 
 // Native dashboard data access
 import { createContext as createCommContext, type AppContext as CommContext } from 'agent-comm/dist/lib.js';
@@ -153,7 +145,6 @@ let saveInterval: ReturnType<typeof setInterval> | null = null;
 let trayTooltipInterval: ReturnType<typeof setInterval> | null = null;
 let updateCheckInterval: ReturnType<typeof setInterval> | null = null;
 let configWatcher: FSWatcher | null = null;
-let loadedPlugins: LoadedPlugin[] = [];
 const terminalManager = new TerminalManager();
 
 // ---------------------------------------------------------------------------
@@ -1150,13 +1141,6 @@ function sendUpdateStatus(type: string, message: string): void {
 app.whenReady().then(async () => {
   loadHistory();
   initNativeContexts();
-
-  loadedPlugins = discoverPlugins();
-  setupPluginIPC(loadedPlugins);
-  if (loadedPlugins.length > 0) {
-    registerPluginProtocol(loadedPlugins);
-  }
-
   setupIPC();
   mainWindow = createWindow();
   createTray();
@@ -1226,7 +1210,6 @@ app.on('window-all-closed', () => {
 
 app.on('before-quit', () => {
   saveSession();
-  destroyPlugins(loadedPlugins);
   closeNativeContexts();
   stopMonitoring();
   if (saveInterval) {

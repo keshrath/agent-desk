@@ -1,4 +1,4 @@
-/* global agentDesk, window, document, console */
+/* global agentDesk, window, document, console, CSS */
 'use strict';
 
 const _loadedPlugins = new Map();
@@ -24,27 +24,14 @@ export async function mountPlugin(pluginId, container) {
   let loaded = _loadedPlugins.get(pluginId);
   if (!loaded) {
     try {
-      if (plugin.cssUrl) {
-        const cssId = `plugin-css-${pluginId}`;
-        if (!document.getElementById(cssId)) {
-          const link = document.createElement('link');
-          link.id = cssId;
-          link.rel = 'stylesheet';
-          link.href = plugin.cssUrl;
-          document.head.appendChild(link);
-        }
-      }
-
       for (const url of plugin.scriptUrls) {
         await loadScript(url);
       }
-
       loaded = { pluginId, mounted: false };
       _loadedPlugins.set(pluginId, loaded);
     } catch (err) {
       console.error(`Failed to load plugin ${pluginId}:`, err);
-      container.innerHTML = `<div style="padding:24px;color:var(--text-secondary)">Failed to load plugin: ${err.message}</div>`;
-      return false;
+      throw err;
     }
   }
 
@@ -92,7 +79,7 @@ export function unmountPlugin(pluginId) {
 
 function loadScript(url) {
   return new Promise((resolve, reject) => {
-    const existing = document.querySelector(`script[src="${url}"]`);
+    const existing = document.querySelector(`script[src="${CSS.escape(url)}"]`);
     if (existing) {
       resolve();
       return;
