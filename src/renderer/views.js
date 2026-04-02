@@ -5,13 +5,32 @@
 'use strict';
 
 import { state, dom, getTermTheme, getTermFontWeight, registry } from './state.js';
-import { initCommView, destroyCommView } from './views/comm-view.js';
-import { initTasksView, destroyTasksView } from './views/tasks-view.js';
-import { initKnowledgeView, destroyKnowledgeView } from './views/knowledge-view.js';
-import { initDiscoverView, destroyDiscoverView } from './views/discover-view.js';
+import { initCommView } from './views/comm-view.js';
+import { initTasksView } from './views/tasks-view.js';
+import { initKnowledgeView } from './views/knowledge-view.js';
+import { initDiscoverView } from './views/discover-view.js';
+import { loadPlugins, getPlugin, mountPlugin } from './plugin-loader.js';
 
-// Track which native views are initialized
 const _nativeViewsInit = { comm: false, tasks: false, knowledge: false, discover: false };
+const _pluginViewsInit = { comm: false, tasks: false, knowledge: false, discover: false };
+let _pluginsLoaded = false;
+
+const _pluginIdMap = {
+  comm: 'agent-comm',
+  tasks: 'agent-tasks',
+  knowledge: 'agent-knowledge',
+  discover: 'agent-discover',
+};
+
+async function _ensurePluginsLoaded() {
+  if (_pluginsLoaded) return;
+  _pluginsLoaded = true;
+  try {
+    await loadPlugins();
+  } catch {
+    /* plugins unavailable */
+  }
+}
 
 export function switchView(viewName) {
   const validViews = ['terminals', 'comm', 'tasks', 'knowledge', 'discover', 'monitor', 'events', 'settings'];
@@ -51,31 +70,19 @@ export function switchView(viewName) {
       break;
     case 'comm':
       dom.viewComm.classList.add('active');
-      if (!_nativeViewsInit.comm) {
-        _nativeViewsInit.comm = true;
-        initCommView(dom.viewComm);
-      }
+      _initAgentView('comm', dom.viewComm, initCommView);
       break;
     case 'tasks':
       dom.viewTasks.classList.add('active');
-      if (!_nativeViewsInit.tasks) {
-        _nativeViewsInit.tasks = true;
-        initTasksView(dom.viewTasks);
-      }
+      _initAgentView('tasks', dom.viewTasks, initTasksView);
       break;
     case 'knowledge':
       if (dom.viewKnowledge) dom.viewKnowledge.classList.add('active');
-      if (!_nativeViewsInit.knowledge) {
-        _nativeViewsInit.knowledge = true;
-        initKnowledgeView(dom.viewKnowledge);
-      }
+      _initAgentView('knowledge', dom.viewKnowledge, initKnowledgeView);
       break;
     case 'discover':
       if (dom.viewDiscover) dom.viewDiscover.classList.add('active');
-      if (!_nativeViewsInit.discover) {
-        _nativeViewsInit.discover = true;
-        initDiscoverView(dom.viewDiscover);
-      }
+      _initAgentView('discover', dom.viewDiscover, initDiscoverView);
       break;
     case 'monitor':
       dom.viewMonitor.classList.add('active');
@@ -91,6 +98,27 @@ export function switchView(viewName) {
 
   updateSidebar();
   registry.updateStatusBar();
+}
+
+async function _initAgentView(viewKey, container, nativeFallback) {
+  if (_pluginViewsInit[viewKey] || _nativeViewsInit[viewKey]) return;
+
+  await _ensurePluginsLoaded();
+  const pluginId = _pluginIdMap[viewKey];
+
+  if (pluginId && getPlugin(pluginId)) {
+    _pluginViewsInit[viewKey] = true;
+    try {
+      await mountPlugin(pluginId, container);
+      return;
+    } catch (err) {
+      console.warn(`Plugin ${pluginId} mount failed, falling back to native:`, err);
+      _pluginViewsInit[viewKey] = false;
+    }
+  }
+
+  _nativeViewsInit[viewKey] = true;
+  nativeFallback(container);
 }
 
 export function updateSidebar() {
