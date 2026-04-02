@@ -246,6 +246,11 @@ const SECTIONS = [
     icon: 'keyboard',
     custom: true,
   },
+  {
+    title: 'MCP Configuration',
+    icon: 'hub',
+    custom: true,
+  },
 ];
 
 // ── Style (injected once) ────────────────────────────────────────────
@@ -1896,6 +1901,121 @@ function _renderShellIntegrationSection(sec) {
   sec.appendChild(statusDiv);
 }
 
+// ── MCP Configuration Section ─────────────────────────────────────────
+
+function _renderMcpConfigSection(sec) {
+  const desc = document.createElement('div');
+  desc.style.cssText = 'font-size:12px;color:var(--text-muted,#888);margin-bottom:16px;line-height:1.5';
+  desc.textContent =
+    'Automatically configure agent-comm, agent-tasks, agent-knowledge, and agent-discover MCP servers for your installed AI coding tools.';
+  sec.appendChild(desc);
+
+  const toolsContainer = document.createElement('div');
+  toolsContainer.style.cssText = 'margin-bottom:16px';
+  sec.appendChild(toolsContainer);
+
+  const resultsContainer = document.createElement('div');
+  resultsContainer.style.cssText = 'margin-top:12px';
+  sec.appendChild(resultsContainer);
+
+  const btnRow = document.createElement('div');
+  btnRow.style.cssText = 'display:flex;gap:8px;margin-top:12px';
+
+  const configureBtn = document.createElement('button');
+  configureBtn.className = 'settings-reset';
+  configureBtn.style.cssText = 'margin:0;background:var(--accent,#5d8da8);color:#fff';
+  configureBtn.innerHTML =
+    '<span class="material-symbols-outlined" style="font-size:16px">settings_suggest</span> Configure All';
+
+  const refreshBtn = document.createElement('button');
+  refreshBtn.className = 'settings-reset';
+  refreshBtn.style.cssText = 'margin:0';
+  refreshBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px">refresh</span> Refresh';
+
+  btnRow.appendChild(configureBtn);
+  btnRow.appendChild(refreshBtn);
+  sec.appendChild(btnRow);
+
+  async function loadTools() {
+    toolsContainer.innerHTML = '';
+    try {
+      const tools = await agentDesk.mcp.detectTools();
+      if (tools.length === 0) {
+        toolsContainer.innerHTML =
+          '<div style="font-size:12px;color:var(--text-muted,#888)">No supported AI coding tools detected.</div>';
+        return;
+      }
+      for (const tool of tools) {
+        const row = document.createElement('div');
+        row.style.cssText =
+          'display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border,rgba(255,255,255,0.04))';
+        const icon = document.createElement('span');
+        icon.className = 'material-symbols-outlined';
+        icon.style.cssText =
+          'font-size:18px;color:' + (tool.configured ? 'var(--accent,#5d8da8)' : 'var(--text-muted,#888)');
+        icon.textContent = tool.configured ? 'check_circle' : 'radio_button_unchecked';
+        const label = document.createElement('span');
+        label.style.cssText = 'font-size:13px;flex:1';
+        label.textContent = tool.label;
+        const pathEl = document.createElement('span');
+        pathEl.style.cssText = 'font-size:11px;color:var(--text-muted,#666);font-family:monospace';
+        pathEl.textContent = tool.path;
+        row.appendChild(icon);
+        row.appendChild(label);
+        row.appendChild(pathEl);
+        toolsContainer.appendChild(row);
+      }
+    } catch (err) {
+      toolsContainer.innerHTML = '<div style="font-size:12px;color:#e57373">Failed to detect tools: ' + err + '</div>';
+    }
+  }
+
+  configureBtn.addEventListener('click', async () => {
+    configureBtn.disabled = true;
+    configureBtn.innerHTML =
+      '<span class="material-symbols-outlined" style="font-size:16px">hourglass_empty</span> Configuring...';
+    resultsContainer.innerHTML = '';
+    try {
+      const results = await agentDesk.mcp.autoConfigure();
+      for (const r of results) {
+        const row = document.createElement('div');
+        row.style.cssText = 'display:flex;align-items:center;gap:8px;padding:6px 0;font-size:12px';
+        const icon = document.createElement('span');
+        icon.className = 'material-symbols-outlined';
+        icon.style.cssText = 'font-size:16px';
+        if (r.status === 'configured') {
+          icon.textContent = 'check_circle';
+          icon.style.color = '#81c784';
+        } else if (r.status === 'skipped') {
+          icon.textContent = 'info';
+          icon.style.color = 'var(--text-muted,#888)';
+        } else {
+          icon.textContent = 'error';
+          icon.style.color = '#e57373';
+        }
+        const text = document.createElement('span');
+        text.textContent = r.label + ': ' + (r.message || r.status);
+        row.appendChild(icon);
+        row.appendChild(text);
+        resultsContainer.appendChild(row);
+      }
+      await loadTools();
+    } catch (err) {
+      resultsContainer.innerHTML = '<div style="font-size:12px;color:#e57373">Configuration failed: ' + err + '</div>';
+    }
+    configureBtn.disabled = false;
+    configureBtn.innerHTML =
+      '<span class="material-symbols-outlined" style="font-size:16px">settings_suggest</span> Configure All';
+  });
+
+  refreshBtn.addEventListener('click', () => {
+    resultsContainer.innerHTML = '';
+    loadTools();
+  });
+
+  loadTools();
+}
+
 async function initSettings(container) {
   injectStyle();
   await _initConfig();
@@ -1936,6 +2056,8 @@ async function initSettings(container) {
       _renderWorkspacesSection(sec);
     } else if (section.custom && section.title === 'Keyboard Shortcuts') {
       _renderKeybindingsSection(sec);
+    } else if (section.custom && section.title === 'MCP Configuration') {
+      _renderMcpConfigSection(sec);
     } else if (section.fields) {
       for (const f of section.fields) {
         sec.appendChild(renderField(f, settings));

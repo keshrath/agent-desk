@@ -10,6 +10,7 @@ import http from 'http';
 import { TerminalManager, HistoryEntry } from './terminal-manager.js';
 import { startMonitoring, stopMonitoring, getSystemStats, onStatsUpdate } from './system-monitor.js';
 import { setupCrashHandlers, writeCrashLog, hasRecentCrashLogs, CRASH_LOG_DIR } from './crash-reporter.js';
+import { autoConfigureMcpServers, detectInstalledTools } from './mcp-autoconfig.js';
 
 // Native dashboard data access
 import { createContext as createCommContext, type AppContext as CommContext } from 'agent-comm/dist/lib.js';
@@ -1239,6 +1240,13 @@ function setupIPC(): void {
   });
 
   ipcMain.handle('app:getCrashLogDir', () => CRASH_LOG_DIR);
+
+  // ---------------------------------------------------------------------------
+  // MCP Auto-Configuration
+  // ---------------------------------------------------------------------------
+
+  ipcMain.handle('mcp:detect-tools', () => detectInstalledTools());
+  ipcMain.handle('mcp:auto-configure', () => autoConfigureMcpServers());
 }
 
 // ---------------------------------------------------------------------------
@@ -1376,6 +1384,25 @@ app.whenReady().then(async () => {
   startNativeDataPolling();
 
   setupAutoUpdater();
+
+  // ---------------------------------------------------------------------------
+  // First-launch MCP auto-configuration
+  // ---------------------------------------------------------------------------
+  const config = readConfig();
+  if (!config.settings?.mcpAutoConfigured) {
+    try {
+      const results = autoConfigureMcpServers();
+      const configured = results.filter((r) => r.status === 'configured');
+      if (configured.length > 0) {
+        process.stderr.write(`[agent-desk] MCP auto-config: configured ${configured.map((r) => r.tool).join(', ')}\n`);
+      }
+      config.settings = config.settings || {};
+      (config.settings as Record<string, unknown>).mcpAutoConfigured = true;
+      writeConfig(config);
+    } catch (err) {
+      process.stderr.write(`[agent-desk] MCP auto-config failed: ${err}\n`);
+    }
+  }
 
   const crashInfo = hasRecentCrashLogs();
   if (crashInfo.hasCrash && mainWindow) {
