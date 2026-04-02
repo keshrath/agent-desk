@@ -5,27 +5,13 @@
 'use strict';
 
 import { state, dom, getTermTheme, getTermFontWeight, registry } from './state.js';
-import { loadPlugins, getPlugin, mountPlugin } from './plugin-loader.js';
+import { initCommView, destroyCommView } from './views/comm-view.js';
+import { initTasksView, destroyTasksView } from './views/tasks-view.js';
+import { initKnowledgeView, destroyKnowledgeView } from './views/knowledge-view.js';
+import { initDiscoverView, destroyDiscoverView } from './views/discover-view.js';
 
-const _pluginViewsInit = { comm: false, tasks: false, knowledge: false, discover: false };
-let _pluginsLoaded = false;
-
-const _pluginIdMap = {
-  comm: 'agent-comm',
-  tasks: 'agent-tasks',
-  knowledge: 'agent-knowledge',
-  discover: 'agent-discover',
-};
-
-async function _ensurePluginsLoaded() {
-  if (_pluginsLoaded) return;
-  _pluginsLoaded = true;
-  try {
-    await loadPlugins();
-  } catch {
-    /* plugins unavailable */
-  }
-}
+// Track which native views are initialized
+const _nativeViewsInit = { comm: false, tasks: false, knowledge: false, discover: false };
 
 export function switchView(viewName) {
   const validViews = ['terminals', 'comm', 'tasks', 'knowledge', 'discover', 'monitor', 'events', 'settings'];
@@ -65,19 +51,31 @@ export function switchView(viewName) {
       break;
     case 'comm':
       dom.viewComm.classList.add('active');
-      _initAgentView('comm', dom.viewComm);
+      if (!_nativeViewsInit.comm) {
+        _nativeViewsInit.comm = true;
+        initCommView(dom.viewComm);
+      }
       break;
     case 'tasks':
       dom.viewTasks.classList.add('active');
-      _initAgentView('tasks', dom.viewTasks);
+      if (!_nativeViewsInit.tasks) {
+        _nativeViewsInit.tasks = true;
+        initTasksView(dom.viewTasks);
+      }
       break;
     case 'knowledge':
       if (dom.viewKnowledge) dom.viewKnowledge.classList.add('active');
-      _initAgentView('knowledge', dom.viewKnowledge);
+      if (!_nativeViewsInit.knowledge) {
+        _nativeViewsInit.knowledge = true;
+        initKnowledgeView(dom.viewKnowledge);
+      }
       break;
     case 'discover':
       if (dom.viewDiscover) dom.viewDiscover.classList.add('active');
-      _initAgentView('discover', dom.viewDiscover);
+      if (!_nativeViewsInit.discover) {
+        _nativeViewsInit.discover = true;
+        initDiscoverView(dom.viewDiscover);
+      }
       break;
     case 'monitor':
       dom.viewMonitor.classList.add('active');
@@ -93,33 +91,6 @@ export function switchView(viewName) {
 
   updateSidebar();
   registry.updateStatusBar();
-}
-
-async function _initAgentView(viewKey, container) {
-  if (_pluginViewsInit[viewKey]) return;
-
-  await _ensurePluginsLoaded();
-  const pluginId = _pluginIdMap[viewKey];
-
-  if (pluginId && getPlugin(pluginId)) {
-    _pluginViewsInit[viewKey] = true;
-    try {
-      await mountPlugin(pluginId, container);
-    } catch (err) {
-      _pluginViewsInit[viewKey] = false;
-      container.innerHTML = `<div style="padding:24px;color:var(--text-secondary,#8b949e)">
-        <span class="material-symbols-outlined" style="font-size:48px;display:block;margin-bottom:12px">error_outline</span>
-        Failed to load ${pluginId} plugin. Is the server running?
-        <div style="margin-top:8px;font-size:12px;opacity:0.6">${err.message || err}</div>
-      </div>`;
-    }
-  } else {
-    container.innerHTML = `<div style="padding:24px;color:var(--text-secondary,#8b949e)">
-      <span class="material-symbols-outlined" style="font-size:48px;display:block;margin-bottom:12px">extension_off</span>
-      Plugin not found: ${pluginId || viewKey}
-      <div style="margin-top:8px;font-size:12px;opacity:0.6">Install the plugin package and restart agent-desk.</div>
-    </div>`;
-  }
 }
 
 export function updateSidebar() {

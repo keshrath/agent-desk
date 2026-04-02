@@ -130,6 +130,7 @@ function registerPluginProtocol(plugins: LoadedPlugin[]): void {
 function getPluginInfoList(plugins: LoadedPlugin[]): PluginInfo[] {
   return plugins.map((p) => {
     const m = p.manifest;
+    const uiDir = join(p.packageDir, 'dist', 'ui');
     const uiFiles = m.uiFiles || [m.ui.split('/').pop() || 'app.js'];
     return {
       id: m.id,
@@ -138,8 +139,8 @@ function getPluginInfoList(plugins: LoadedPlugin[]): PluginInfo[] {
       version: m.version,
       description: m.description || '',
       position: m.position ?? 99,
-      cssUrl: m.css ? `plugin://${m.id}/styles.css` : null,
-      scriptUrls: uiFiles.map((f) => `plugin://${m.id}/${f}`),
+      cssUrl: m.css ? pathToFileURL(join(uiDir, 'styles.css')).href : null,
+      scriptUrls: uiFiles.map((f) => pathToFileURL(join(uiDir, f)).href),
     };
   });
 }
