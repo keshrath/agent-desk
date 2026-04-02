@@ -5,13 +5,8 @@
 'use strict';
 
 import { state, dom, getTermTheme, getTermFontWeight, registry } from './state.js';
-import { initCommView } from './views/comm-view.js';
-import { initTasksView } from './views/tasks-view.js';
-import { initKnowledgeView } from './views/knowledge-view.js';
-import { initDiscoverView } from './views/discover-view.js';
 import { loadPlugins, getPlugin, mountPlugin } from './plugin-loader.js';
 
-const _nativeViewsInit = { comm: false, tasks: false, knowledge: false, discover: false };
 const _pluginViewsInit = { comm: false, tasks: false, knowledge: false, discover: false };
 let _pluginsLoaded = false;
 
@@ -70,19 +65,19 @@ export function switchView(viewName) {
       break;
     case 'comm':
       dom.viewComm.classList.add('active');
-      _initAgentView('comm', dom.viewComm, initCommView);
+      _initAgentView('comm', dom.viewComm);
       break;
     case 'tasks':
       dom.viewTasks.classList.add('active');
-      _initAgentView('tasks', dom.viewTasks, initTasksView);
+      _initAgentView('tasks', dom.viewTasks);
       break;
     case 'knowledge':
       if (dom.viewKnowledge) dom.viewKnowledge.classList.add('active');
-      _initAgentView('knowledge', dom.viewKnowledge, initKnowledgeView);
+      _initAgentView('knowledge', dom.viewKnowledge);
       break;
     case 'discover':
       if (dom.viewDiscover) dom.viewDiscover.classList.add('active');
-      _initAgentView('discover', dom.viewDiscover, initDiscoverView);
+      _initAgentView('discover', dom.viewDiscover);
       break;
     case 'monitor':
       dom.viewMonitor.classList.add('active');
@@ -100,8 +95,8 @@ export function switchView(viewName) {
   registry.updateStatusBar();
 }
 
-async function _initAgentView(viewKey, container, nativeFallback) {
-  if (_pluginViewsInit[viewKey] || _nativeViewsInit[viewKey]) return;
+async function _initAgentView(viewKey, container) {
+  if (_pluginViewsInit[viewKey]) return;
 
   await _ensurePluginsLoaded();
   const pluginId = _pluginIdMap[viewKey];
@@ -110,15 +105,21 @@ async function _initAgentView(viewKey, container, nativeFallback) {
     _pluginViewsInit[viewKey] = true;
     try {
       await mountPlugin(pluginId, container);
-      return;
     } catch (err) {
-      console.warn(`Plugin ${pluginId} mount failed, falling back to native:`, err);
       _pluginViewsInit[viewKey] = false;
+      container.innerHTML = `<div style="padding:24px;color:var(--text-secondary,#8b949e)">
+        <span class="material-symbols-outlined" style="font-size:48px;display:block;margin-bottom:12px">error_outline</span>
+        Failed to load ${pluginId} plugin. Is the server running?
+        <div style="margin-top:8px;font-size:12px;opacity:0.6">${err.message || err}</div>
+      </div>`;
     }
+  } else {
+    container.innerHTML = `<div style="padding:24px;color:var(--text-secondary,#8b949e)">
+      <span class="material-symbols-outlined" style="font-size:48px;display:block;margin-bottom:12px">extension_off</span>
+      Plugin not found: ${pluginId || viewKey}
+      <div style="margin-top:8px;font-size:12px;opacity:0.6">Install the plugin package and restart agent-desk.</div>
+    </div>`;
   }
-
-  _nativeViewsInit[viewKey] = true;
-  nativeFallback(container);
 }
 
 export function updateSidebar() {
