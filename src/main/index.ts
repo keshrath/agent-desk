@@ -899,12 +899,12 @@ app.whenReady().then(async () => {
   initNativeContexts();
 
   loadedPlugins = discoverPlugins();
+  process.stderr.write(
+    `[agent-desk] discovered ${loadedPlugins.length} plugin(s): ${loadedPlugins.map((p) => p.manifest.id).join(', ')}\n`,
+  );
+  setupPluginIPC(loadedPlugins);
   if (loadedPlugins.length > 0) {
-    process.stderr.write(
-      `[agent-desk] discovered ${loadedPlugins.length} plugin(s): ${loadedPlugins.map((p) => p.manifest.id).join(', ')}\n`,
-    );
     registerPluginProtocol(loadedPlugins);
-    setupPluginIPC(loadedPlugins);
   }
 
   setupIPC();
