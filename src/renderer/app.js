@@ -16,7 +16,6 @@ import './commands.js';
 import './keybinds.js';
 import './workspaces.js';
 import './drag-drop.js';
-import './dashboard.js';
 import './system-monitor.js';
 import './batch-launcher.js';
 import './templates.js';

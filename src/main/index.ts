@@ -1080,6 +1080,7 @@ function getHistory(limit?: number, search?: string): HistoryEntry[] {
 function setupAutoUpdater(): void {
   try {
     import('electron-updater').then(({ autoUpdater }) => {
+      if (!autoUpdater?.setFeedURL) return;
       autoUpdater.setFeedURL({
         provider: 'github',
         owner: 'keshrath',
