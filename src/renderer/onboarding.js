@@ -48,7 +48,7 @@ const FEATURES = [
 // State
 // ---------------------------------------------------------------------------
 
-let _currentStep = 0; // 0=welcome, 1=features, 2=quickstart
+let _currentStep = 0; // 0=welcome, 1=features, 2=mcp-config, 3=quickstart
 let _featureIndex = 0;
 let _overlay = null;
 
@@ -93,7 +93,7 @@ function buildOverlay() {
   // Dot indicators
   const dots = document.createElement('div');
   dots.className = 'onboarding-dots';
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < 4; i++) {
     const dot = document.createElement('span');
     dot.className = 'onboarding-dot' + (i === 0 ? ' active' : '');
     dot.dataset.step = String(i);
@@ -109,6 +109,7 @@ function renderStep(container, step) {
   container.innerHTML = '';
   if (step === 0) renderWelcome(container);
   else if (step === 1) renderFeatures(container);
+  else if (step === 2) renderMcpConfig(container);
   else renderQuickStart(container);
 
   const dots = container.parentElement.querySelectorAll('.onboarding-dot');
@@ -211,6 +212,115 @@ function renderFeatures(container) {
     next.addEventListener('click', () => goToStep(2));
     nav.appendChild(next);
   }
+
+  container.appendChild(nav);
+}
+
+async function renderMcpConfig(container) {
+  const icon = document.createElement('span');
+  icon.className = 'material-symbols-outlined onboarding-hero-icon';
+  icon.textContent = 'widgets';
+  container.appendChild(icon);
+
+  const h2 = document.createElement('h2');
+  h2.className = 'onboarding-title';
+  h2.textContent = 'Configure MCP Servers';
+  container.appendChild(h2);
+
+  const desc = document.createElement('p');
+  desc.className = 'onboarding-desc';
+  desc.textContent = 'Agent Desk bundles 4 MCP servers. Configure them for your installed AI coding tools?';
+  container.appendChild(desc);
+
+  // Loading state
+  const listEl = document.createElement('div');
+  listEl.className = 'onboarding-mcp-list';
+  listEl.innerHTML = '<p style="color:var(--text-secondary);font-size:13px">Detecting installed tools...</p>';
+  container.appendChild(listEl);
+
+  // Detect tools
+  let tools = [];
+  try {
+    tools = await agentDesk.mcp.detectTools();
+  } catch {
+    tools = [];
+  }
+
+  if (tools.length === 0) {
+    listEl.innerHTML =
+      '<p style="color:var(--text-secondary);font-size:13px">No supported tools detected. You can configure later in Settings.</p>';
+  } else {
+    listEl.innerHTML = '';
+    tools.forEach((t) => {
+      const row = document.createElement('label');
+      row.className = 'onboarding-mcp-tool';
+
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.checked = !t.configured;
+      cb.disabled = t.configured;
+      cb.dataset.tool = t.name;
+
+      const text = document.createElement('span');
+      text.textContent = t.label + (t.configured ? ' (already configured)' : '');
+
+      row.appendChild(cb);
+      row.appendChild(text);
+      listEl.appendChild(row);
+    });
+  }
+
+  // Results area
+  const resultsEl = document.createElement('div');
+  resultsEl.className = 'onboarding-mcp-results';
+  container.appendChild(resultsEl);
+
+  // Buttons
+  const nav = document.createElement('div');
+  nav.className = 'onboarding-nav-row';
+
+  const skip = document.createElement('button');
+  skip.className = 'onboarding-btn onboarding-btn-secondary';
+  skip.textContent = 'Skip';
+  skip.addEventListener('click', () => goToStep(3));
+  nav.appendChild(skip);
+
+  const configure = document.createElement('button');
+  configure.className = 'onboarding-btn onboarding-btn-primary';
+  configure.textContent = 'Configure Selected';
+  configure.addEventListener('click', async () => {
+    configure.disabled = true;
+    configure.textContent = 'Configuring...';
+    try {
+      const results = await agentDesk.mcp.autoConfigure();
+      resultsEl.innerHTML = '';
+      results.forEach((r) => {
+        const line = document.createElement('div');
+        line.style.cssText = 'font-size:12px;padding:2px 0;color:var(--text-secondary)';
+        const statusIcon =
+          r.status === 'configured' ? 'check_circle' : r.status === 'skipped' ? 'remove_circle' : 'error';
+        const color =
+          r.status === 'configured' ? '#4caf50' : r.status === 'error' ? '#f44336' : 'var(--text-secondary)';
+        line.innerHTML =
+          '<span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;color:' +
+          color +
+          '">' +
+          statusIcon +
+          '</span> ' +
+          r.label +
+          ': ' +
+          (r.status === 'configured' ? 'Done' : r.message || r.status);
+        resultsEl.appendChild(line);
+      });
+      configure.textContent = 'Done!';
+      setTimeout(() => goToStep(3), 2000);
+    } catch (err) {
+      configure.disabled = false;
+      configure.textContent = 'Configure Selected';
+      resultsEl.innerHTML = '<p style="color:#f44336;font-size:12px">Error: ' + err.message + '</p>';
+    }
+  });
+  if (tools.length > 0) nav.appendChild(configure);
 
   container.appendChild(nav);
 }

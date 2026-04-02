@@ -113,16 +113,6 @@ contextBridge.exposeInMainWorld('agentDesk', {
     },
   },
 
-  // Dashboard health status
-  dashboard: {
-    getStatus: () => ipcRenderer.invoke('dashboard:get-status'),
-    onStatusChanged: (callback: (status: { comm: string; tasks: string; knowledge: string }) => void) => {
-      const listener = (_e: unknown, status: { comm: string; tasks: string; knowledge: string }) => callback(status);
-      ipcRenderer.on('dashboard:status-changed', listener);
-      return () => ipcRenderer.removeListener('dashboard:status-changed', listener);
-    },
-  },
-
   // System Monitor
   system: {
     getStats: () => ipcRenderer.invoke('system:stats'),
@@ -224,24 +214,4 @@ contextBridge.exposeInMainWorld('agentDesk', {
   // Shell
   openExternal: (url: string) => ipcRenderer.send('shell:openExternal', url),
   openPath: (dirPath: string) => ipcRenderer.send('shell:openPath', dirPath),
-
-  // Webview bridge (F14)
-  webview: {
-    /** Get the absolute path to the webview bridge preload script */
-    getPreloadPath: () => ipcRenderer.invoke('webview:get-preload-path'),
-    /** Broadcast terminal state to all webviews (called from renderer) */
-    broadcastTerminalUpdate: (terminals: Array<{ id: string; title: string; status: string; agentName?: string }>) =>
-      ipcRenderer.send('webview:broadcast-terminal-update', terminals),
-    /** Listen for terminal updates relayed from main (for webviews in renderer) */
-    onTerminalUpdate: (
-      callback: (terminals: Array<{ id: string; title: string; status: string; agentName?: string }>) => void,
-    ) => {
-      const listener = (
-        _e: unknown,
-        terminals: Array<{ id: string; title: string; status: string; agentName?: string }>,
-      ) => callback(terminals);
-      ipcRenderer.on('webview:terminal-updated', listener);
-      return () => ipcRenderer.removeListener('webview:terminal-updated', listener);
-    },
-  },
 });

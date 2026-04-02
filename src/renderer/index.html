@@ -12,7 +12,6 @@
     font-src 'self' https://fonts.gstatic.com;
     img-src 'self' data: blob:;
     connect-src 'self' http://localhost:* ws://localhost:*;
-    frame-src http://localhost:* https://localhost:*;
   "
     />
     <title>Agent Desk</title>
@@ -144,27 +143,19 @@
           <div id="content">
             <div id="terminal-views" class="view active"></div>
 
-            <div id="view-comm" class="view">
-              <webview id="webview-comm" data-src="http://localhost:3421" style="display: none"></webview>
-            </div>
+            <div id="view-comm" class="view"></div>
 
-            <div id="view-tasks" class="view">
-              <webview id="webview-tasks" data-src="http://localhost:3422" style="display: none"></webview>
-            </div>
+            <div id="view-tasks" class="view"></div>
 
-            <div id="view-knowledge" class="view">
-              <webview id="webview-knowledge" data-src="http://localhost:3423" style="display: none"></webview>
-            </div>
+            <div id="view-knowledge" class="view"></div>
 
-            <div id="view-discover" class="view">
-              <webview id="webview-discover" data-src="http://localhost:3424" style="display: none"></webview>
-            </div>
+            <div id="view-discover" class="view"></div>
 
             <div id="view-monitor" class="view agent-monitor"></div>
 
             <div id="view-events" class="view"></div>
 
-            <div id="settings-panel" class="webview-container"></div>
+            <div id="settings-panel" class="view"></div>
           </div>
         </div>
       </div>

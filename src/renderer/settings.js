@@ -46,11 +46,6 @@ const DEFAULTS = {
   cursorBlink: true,
   scrollback: 10000,
   lineHeight: 1.3,
-  // Dashboard URLs
-  agentCommUrl: 'http://localhost:3421',
-  agentTasksUrl: 'http://localhost:3422',
-  agentKnowledgeUrl: 'http://localhost:3423',
-  agentDiscoverUrl: 'http://localhost:3424',
   // Appearance
   sidebarPosition: 'left',
   showStatusBar: true,
@@ -181,16 +176,6 @@ const SECTIONS = [
       { key: 'cursorBlink', label: 'Cursor Blink', type: 'checkbox' },
       { key: 'scrollback', label: 'Scrollback Lines', type: 'number', min: 1000, max: 100000, step: 1000 },
       { key: 'lineHeight', label: 'Line Height', type: 'number', min: 1.0, max: 2.0, step: 0.1 },
-    ],
-  },
-  {
-    title: 'Dashboard URLs',
-    icon: 'language',
-    fields: [
-      { key: 'agentCommUrl', label: 'Agent Comm URL', type: 'text' },
-      { key: 'agentTasksUrl', label: 'Agent Tasks URL', type: 'text' },
-      { key: 'agentKnowledgeUrl', label: 'Agent Knowledge URL', type: 'text' },
-      { key: 'agentDiscoverUrl', label: 'Agent Discover URL', type: 'text' },
     ],
   },
   {

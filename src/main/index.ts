@@ -5,8 +5,6 @@ import { createRequire } from 'module';
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, unlinkSync, writeFileSync, watch } from 'fs';
 import type { FSWatcher } from 'fs';
 import { homedir } from 'os';
-import { spawn } from 'child_process';
-import http from 'http';
 import { TerminalManager, HistoryEntry } from './terminal-manager.js';
 import { startMonitoring, stopMonitoring, getSystemStats, onStatsUpdate } from './system-monitor.js';
 import { setupCrashHandlers, writeCrashLog, hasRecentCrashLogs, CRASH_LOG_DIR } from './crash-reporter.js';
@@ -145,37 +143,9 @@ let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let saveInterval: ReturnType<typeof setInterval> | null = null;
 let trayTooltipInterval: ReturnType<typeof setInterval> | null = null;
-let healthCheckInterval: ReturnType<typeof setInterval> | null = null;
 let updateCheckInterval: ReturnType<typeof setInterval> | null = null;
 let configWatcher: FSWatcher | null = null;
 const terminalManager = new TerminalManager();
-
-// ---------------------------------------------------------------------------
-// Dashboard Health Check State
-// ---------------------------------------------------------------------------
-
-type ServiceStatus = 'up' | 'down' | 'unknown';
-
-interface DashboardStatus {
-  comm: ServiceStatus;
-  tasks: ServiceStatus;
-  knowledge: ServiceStatus;
-  discover: ServiceStatus;
-}
-
-const dashboardStatus: DashboardStatus = {
-  comm: 'unknown',
-  tasks: 'unknown',
-  knowledge: 'unknown',
-  discover: 'unknown',
-};
-
-const SERVICE_KEY_MAP: Record<string, keyof DashboardStatus> = {
-  'agent-comm': 'comm',
-  'agent-tasks': 'tasks',
-  'agent-knowledge': 'knowledge',
-  'agent-discover': 'discover',
-};
 
 // ---------------------------------------------------------------------------
 // Config File (~/.agent-desk/config.json) — F6
@@ -307,156 +277,6 @@ if (!gotLock) {
   });
 }
 
-// Resolve bundled MCP server directory, falling back to user's local install
-function findPackageDir(name: string, fallback: string): string {
-  const candidates = [
-    join(__dirname, '..', 'node_modules', name),
-    join(__dirname, '..', '..', 'node_modules', name),
-    join(process.resourcesPath || '', 'app', 'node_modules', name),
-    join(process.resourcesPath || '', 'app.asar.unpacked', 'node_modules', name),
-  ];
-  for (const dir of candidates) {
-    if (existsSync(join(dir, 'package.json'))) return dir;
-  }
-  return fallback;
-}
-
-// Dashboard services to auto-start
-const DASHBOARDS = [
-  {
-    name: 'agent-comm',
-    port: 3421,
-    dir: findPackageDir('agent-comm', join(homedir(), '.claude', 'mcp-servers', 'agent-comm')),
-    start: 'node dist/server.js',
-  },
-  {
-    name: 'agent-tasks',
-    port: 3422,
-    dir: findPackageDir('agent-tasks', join(homedir(), '.claude', 'mcp-servers', 'agent-tasks')),
-    start: 'node dist/server.js',
-  },
-  {
-    name: 'agent-knowledge',
-    port: 3423,
-    dir: findPackageDir('agent-knowledge', join(homedir(), '.claude', 'mcp-servers', 'agent-knowledge')),
-    start: 'node dist/dashboard.js',
-  },
-  {
-    name: 'agent-discover',
-    port: 3424,
-    dir: findPackageDir('agent-discover', join(homedir(), '.claude', 'mcp-servers', 'agent-discover')),
-    start: 'node dist/server.js',
-  },
-];
-
-function checkPort(port: number): Promise<boolean> {
-  return new Promise((resolve) => {
-    const req = http.get({ hostname: '127.0.0.1', port, path: '/', timeout: 2000 }, () => resolve(true));
-    req.on('error', () => resolve(false));
-    req.on('timeout', () => {
-      req.destroy();
-      resolve(false);
-    });
-  });
-}
-
-async function ensureDashboards(): Promise<void> {
-  for (const dash of DASHBOARDS) {
-    if (!existsSync(dash.dir)) {
-      process.stderr.write(`[agent-desk] ${dash.name}: directory not found at ${dash.dir}, skipping\n`);
-      continue;
-    }
-    const running = await checkPort(dash.port);
-    if (running) {
-      process.stderr.write(`[agent-desk] ${dash.name}: already running on port ${dash.port}\n`);
-      continue;
-    }
-    try {
-      const [cmd, ...args] = dash.start.split(' ');
-      const child = spawn(cmd, args, {
-        cwd: dash.dir,
-        stdio: 'ignore',
-        detached: true,
-        shell: true,
-        windowsHide: true,
-        env: { ...process.env },
-      });
-      child.unref();
-      process.stderr.write(`[agent-desk] ${dash.name}: started on port ${dash.port} (pid ${child.pid})\n`);
-    } catch (err) {
-      process.stderr.write(`[agent-desk] ${dash.name}: failed to start — ${err}\n`);
-    }
-  }
-}
-
-async function checkDashboardHealth(): Promise<void> {
-  for (const dash of DASHBOARDS) {
-    const key = SERVICE_KEY_MAP[dash.name];
-    if (!key) continue;
-
-    const dirExists = existsSync(dash.dir);
-    if (!dirExists) {
-      // Service not installed — keep as unknown, don't flag as down
-      if (dashboardStatus[key] !== 'unknown') {
-        dashboardStatus[key] = 'unknown';
-        broadcastDashboardStatus();
-      }
-      continue;
-    }
-
-    const running = await checkPort(dash.port);
-    const prev = dashboardStatus[key];
-    const next: ServiceStatus = running ? 'up' : 'down';
-
-    if (next === 'down') {
-      // Attempt restart
-      try {
-        const [cmd, ...args] = dash.start.split(' ');
-        const child = spawn(cmd, args, {
-          cwd: dash.dir,
-          stdio: 'ignore',
-          detached: true,
-          shell: true,
-          windowsHide: true,
-          env: { ...process.env },
-        });
-        child.unref();
-        process.stderr.write(`[agent-desk] health: restarting ${dash.name} on port ${dash.port}\n`);
-      } catch (err) {
-        process.stderr.write(`[agent-desk] health: failed to restart ${dash.name} — ${err}\n`);
-      }
-    }
-
-    dashboardStatus[key] = next;
-    if (prev !== next) {
-      process.stderr.write(`[agent-desk] health: ${dash.name} ${prev} -> ${next}\n`);
-      broadcastDashboardStatus();
-    }
-  }
-}
-
-function broadcastDashboardStatus(): void {
-  if (mainWindow) {
-    try {
-      mainWindow.webContents.send('dashboard:status-changed', { ...dashboardStatus });
-    } catch {
-      /* window may be closed */
-    }
-  }
-}
-
-function startHealthChecks(): void {
-  // Run initial check after a short delay (let services from ensureDashboards start)
-  setTimeout(async () => {
-    await checkDashboardHealth();
-  }, 5000);
-
-  // Then every 30 seconds
-  healthCheckInterval = setInterval(() => {
-    checkDashboardHealth();
-  }, 30000);
-}
-
 // Session persistence
 const SESSION_DIR = join(homedir(), '.agent-desk');
 const SESSION_FILE = join(SESSION_DIR, 'sessions.json');
@@ -580,7 +400,6 @@ function createWindow(): BrowserWindow {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,
-      webviewTag: true,
     },
   });
 
@@ -1159,60 +978,6 @@ function setupIPC(): void {
   });
 
   // ---------------------------------------------------------------------------
-  // Dashboard Health Status
-  // ---------------------------------------------------------------------------
-
-  ipcMain.handle('dashboard:get-status', () => ({ ...dashboardStatus }));
-
-  // ---------------------------------------------------------------------------
-  // Webview Bridge — relay IPC between dashboard webviews and renderer (F14)
-  // ---------------------------------------------------------------------------
-
-  ipcMain.handle('webview:get-preload-path', () => {
-    return join(__dirname, '../preload/webview-bridge.js');
-  });
-
-  // Forward focus-terminal request from webview -> renderer
-  ipcMain.handle('webview:focus-terminal', async (_e, agentName: string) => {
-    if (!mainWindow) return false;
-    return await mainWindow.webContents.executeJavaScript(
-      `window.__agentDeskBridge?.focusTerminal(${JSON.stringify(agentName)}) ?? false`,
-    );
-  });
-
-  ipcMain.handle('webview:focus-terminal-by-id', async (_e, terminalId: string) => {
-    if (!mainWindow) return false;
-    return await mainWindow.webContents.executeJavaScript(
-      `window.__agentDeskBridge?.focusTerminalById(${JSON.stringify(terminalId)}) ?? false`,
-    );
-  });
-
-  ipcMain.handle('webview:paste-to-terminal', async (_e, text: string) => {
-    if (!mainWindow) return false;
-    return await mainWindow.webContents.executeJavaScript(
-      `window.__agentDeskBridge?.pasteToTerminal(${JSON.stringify(text)}) ?? false`,
-    );
-  });
-
-  ipcMain.handle('webview:get-terminals', async () => {
-    if (!mainWindow) return [];
-    return await mainWindow.webContents.executeJavaScript(`window.__agentDeskBridge?.getTerminals() ?? []`);
-  });
-
-  ipcMain.handle('webview:create-terminal', async (_e, opts: { cwd?: string; command?: string; args?: string[] }) => {
-    if (!mainWindow) return null;
-    return await mainWindow.webContents.executeJavaScript(
-      `window.__agentDeskBridge?.createTerminal(${JSON.stringify(opts)}) ?? null`,
-    );
-  });
-
-  // Renderer pushes terminal updates -> main broadcasts to all webviews
-  ipcMain.on('webview:broadcast-terminal-update', (_e, terminals: unknown) => {
-    if (!mainWindow) return;
-    mainWindow.webContents.send('webview:terminal-updated', terminals);
-  });
-
-  // ---------------------------------------------------------------------------
   // System Monitor
   // ---------------------------------------------------------------------------
 
@@ -1376,33 +1141,14 @@ app.whenReady().then(async () => {
   loadHistory();
   initNativeContexts();
   setupIPC();
-  await ensureDashboards();
   mainWindow = createWindow();
   createTray();
   watchConfig();
-  startHealthChecks();
   startNativeDataPolling();
 
   setupAutoUpdater();
 
-  // ---------------------------------------------------------------------------
-  // First-launch MCP auto-configuration
-  // ---------------------------------------------------------------------------
-  const config = readConfig();
-  if (!config.settings?.mcpAutoConfigured) {
-    try {
-      const results = autoConfigureMcpServers();
-      const configured = results.filter((r) => r.status === 'configured');
-      if (configured.length > 0) {
-        process.stderr.write(`[agent-desk] MCP auto-config: configured ${configured.map((r) => r.tool).join(', ')}\n`);
-      }
-      config.settings = config.settings || {};
-      (config.settings as Record<string, unknown>).mcpAutoConfigured = true;
-      writeConfig(config);
-    } catch (err) {
-      process.stderr.write(`[agent-desk] MCP auto-config failed: ${err}\n`);
-    }
-  }
+  // MCP auto-configuration removed from startup — now handled by onboarding wizard
 
   const crashInfo = hasRecentCrashLogs();
   if (crashInfo.hasCrash && mainWindow) {
@@ -1472,10 +1218,6 @@ app.on('before-quit', () => {
   if (trayTooltipInterval) {
     clearInterval(trayTooltipInterval);
     trayTooltipInterval = null;
-  }
-  if (healthCheckInterval) {
-    clearInterval(healthCheckInterval);
-    healthCheckInterval = null;
   }
   if (updateCheckInterval) {
     clearInterval(updateCheckInterval);
