@@ -211,6 +211,12 @@ contextBridge.exposeInMainWorld('agentDesk', {
     autoConfigure: () => ipcRenderer.invoke('mcp:auto-configure'),
   },
 
+  // Plugins
+  plugins: {
+    list: () => ipcRenderer.invoke('plugins:list'),
+    getConfig: (pluginId: string) => ipcRenderer.invoke('plugins:getConfig', pluginId),
+  },
+
   // Shell
   openExternal: (url: string) => ipcRenderer.send('shell:openExternal', url),
   openPath: (dirPath: string) => ipcRenderer.send('shell:openPath', dirPath),

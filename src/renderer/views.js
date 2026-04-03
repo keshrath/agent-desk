@@ -5,13 +5,39 @@
 'use strict';
 
 import { state, dom, getTermTheme, getTermFontWeight, registry } from './state.js';
-import { initCommView, destroyCommView } from './views/comm-view.js';
-import { initTasksView, destroyTasksView } from './views/tasks-view.js';
-import { initKnowledgeView, destroyKnowledgeView } from './views/knowledge-view.js';
-import { initDiscoverView, destroyDiscoverView } from './views/discover-view.js';
+import { loadPlugins, getPlugin, mountPlugin } from './plugin-loader.js';
 
-// Track which native views are initialized
-const _nativeViewsInit = { comm: false, tasks: false, knowledge: false, discover: false };
+const _pluginViewsInit = { comm: false, tasks: false, knowledge: false, discover: false };
+let _pluginsLoaded = false;
+
+async function _ensurePluginsLoaded() {
+  if (_pluginsLoaded) return;
+  _pluginsLoaded = true;
+  try {
+    await loadPlugins();
+  } catch {
+    /* plugins unavailable */
+  }
+}
+
+async function _initPluginView(viewKey, pluginId, container) {
+  if (_pluginViewsInit[viewKey]) return;
+
+  await _ensurePluginsLoaded();
+  const plugin = getPlugin(pluginId);
+
+  if (plugin) {
+    _pluginViewsInit[viewKey] = true;
+    try {
+      await mountPlugin(pluginId, container);
+    } catch (err) {
+      _pluginViewsInit[viewKey] = false;
+      container.innerHTML = `<div style="padding:24px;color:var(--text-secondary,#8b949e)">Failed to load ${pluginId}: ${err.message || err}</div>`;
+    }
+  } else {
+    container.innerHTML = `<div style="padding:24px;color:var(--text-secondary,#8b949e)">Plugin not found: ${pluginId}</div>`;
+  }
+}
 
 export function switchView(viewName) {
   const validViews = ['terminals', 'comm', 'tasks', 'knowledge', 'discover', 'monitor', 'events', 'settings'];
@@ -51,31 +77,19 @@ export function switchView(viewName) {
       break;
     case 'comm':
       dom.viewComm.classList.add('active');
-      if (!_nativeViewsInit.comm) {
-        _nativeViewsInit.comm = true;
-        initCommView(dom.viewComm);
-      }
+      _initPluginView('comm', 'agent-comm', dom.viewComm);
       break;
     case 'tasks':
       dom.viewTasks.classList.add('active');
-      if (!_nativeViewsInit.tasks) {
-        _nativeViewsInit.tasks = true;
-        initTasksView(dom.viewTasks);
-      }
+      _initPluginView('tasks', 'agent-tasks', dom.viewTasks);
       break;
     case 'knowledge':
       if (dom.viewKnowledge) dom.viewKnowledge.classList.add('active');
-      if (!_nativeViewsInit.knowledge) {
-        _nativeViewsInit.knowledge = true;
-        initKnowledgeView(dom.viewKnowledge);
-      }
+      _initPluginView('knowledge', 'agent-knowledge', dom.viewKnowledge);
       break;
     case 'discover':
       if (dom.viewDiscover) dom.viewDiscover.classList.add('active');
-      if (!_nativeViewsInit.discover) {
-        _nativeViewsInit.discover = true;
-        initDiscoverView(dom.viewDiscover);
-      }
+      _initPluginView('discover', 'agent-discover', dom.viewDiscover);
       break;
     case 'monitor':
       dom.viewMonitor.classList.add('active');
