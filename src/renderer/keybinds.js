@@ -54,7 +54,9 @@ function _registerKeybindingActions() {
   km.registerAction('viewComm', () => registry.switchView('comm'));
   km.registerAction('viewTasks', () => registry.switchView('tasks'));
   km.registerAction('viewKnowledge', () => registry.switchView('knowledge'));
+  km.registerAction('viewDiscover', () => registry.switchView('discover'));
   km.registerAction('viewMonitor', () => registry.switchView('monitor'));
+  km.registerAction('viewEvents', () => registry.switchView('events'));
   km.registerAction('viewSettings', () => registry.switchView('settings'));
   km.registerAction('commandPalette', () => registry.showCommandPalette());
   km.registerAction('quickSwitcher', () => registry.showQuickSwitcher());

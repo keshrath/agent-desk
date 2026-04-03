@@ -132,11 +132,21 @@ function getPluginInfoList(plugins: LoadedPlugin[]): PluginInfo[] {
     const m = p.manifest;
     const uiDir = join(p.packageDir, 'dist', 'ui');
     const uiFiles = m.uiFiles || [m.ui.split('/').pop() || 'app.js'];
+    // Prefer version from package.json (always up-to-date) over manifest
+    let version = m.version;
+    try {
+      const pkgPath = join(p.packageDir, 'package.json');
+      if (existsSync(pkgPath)) {
+        version = JSON.parse(readFileSync(pkgPath, 'utf-8')).version || version;
+      }
+    } catch {
+      /* use manifest version */
+    }
     return {
       id: m.id,
       name: m.name,
       icon: m.icon,
-      version: m.version,
+      version,
       description: m.description || '',
       position: m.position ?? 99,
       cssUrl: m.css ? pathToFileURL(join(uiDir, 'styles.css')).href : null,

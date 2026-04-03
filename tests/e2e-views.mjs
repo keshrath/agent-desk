@@ -60,7 +60,9 @@ for (const tab of tabs) {
       await btn.click();
       await window.waitForTimeout(500);
     }
-  } catch { /* skip */ }
+  } catch {
+    /* skip */
+  }
 }
 await window.waitForTimeout(1000);
 

@@ -334,6 +334,8 @@ const eventStream = (function () {
     _displayedCount = toShow.length;
 
     _updateLoadMoreBtn(visible.length);
+    const countEl = document.getElementById('es-count');
+    if (countEl) countEl.textContent = String(visible.length);
   }
 
   function _loadMore() {

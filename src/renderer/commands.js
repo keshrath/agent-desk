@@ -201,7 +201,27 @@ const COMMANDS = [
     shortcut: 'Ctrl+4',
     action: () => registry.switchView('knowledge'),
   },
-  { id: 'view-settings', label: 'View: Settings', icon: 'settings', action: () => registry.switchView('settings') },
+  {
+    id: 'view-discover',
+    label: 'View: Discover',
+    icon: 'widgets',
+    shortcut: 'Ctrl+5',
+    action: () => registry.switchView('discover'),
+  },
+  {
+    id: 'view-monitor',
+    label: 'View: Agent Monitor',
+    icon: 'hub',
+    shortcut: 'Ctrl+6',
+    action: () => registry.switchView('monitor'),
+  },
+  {
+    id: 'view-settings',
+    label: 'View: Settings',
+    icon: 'settings',
+    shortcut: 'Ctrl+8',
+    action: () => registry.switchView('settings'),
+  },
   {
     id: 'toggle-theme',
     label: 'Toggle Theme',
@@ -247,9 +267,9 @@ const COMMANDS = [
   },
   {
     id: 'view-events',
-    label: 'View: Event Stream',
+    label: 'View: Events',
     icon: 'timeline',
-    shortcut: 'Ctrl+E',
+    shortcut: 'Ctrl+7',
     action: () => registry.switchView('events'),
   },
   {
