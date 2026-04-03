@@ -415,7 +415,12 @@ function applyThemeColors(theme) {
   root.style.setProperty('--text-dim', c.textSecondary);
   root.style.setProperty('--accent', c.accent || c.primary);
   root.style.setProperty('--accent-hover', c.accentHover || c.accent || c.primary);
-  root.style.setProperty('--accent-dim', c.primary);
+  // accent-dim must be a transparent version of accent, not a solid color
+  const accentColor = c.accent || c.primary;
+  const r = parseInt(accentColor.slice(1, 3), 16);
+  const g = parseInt(accentColor.slice(3, 5), 16);
+  const b = parseInt(accentColor.slice(5, 7), 16);
+  root.style.setProperty('--accent-dim', `rgba(${r}, ${g}, ${b}, 0.15)`);
 
   // Standard plugin contract variables (derived from theme colors)
   root.style.setProperty('--bg-surface', c.surface);
