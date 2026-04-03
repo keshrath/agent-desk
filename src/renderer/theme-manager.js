@@ -405,7 +405,7 @@ function applyThemeColors(theme) {
 
   root.setAttribute('data-theme', theme.type || 'dark');
 
-  // Override CSS custom properties
+  // Override CSS custom properties (agent-desk internal)
   root.style.setProperty('--bg', c.background);
   root.style.setProperty('--surface', c.surface);
   root.style.setProperty('--surface-hover', c.surfaceHover || c.surface);
@@ -416,6 +416,13 @@ function applyThemeColors(theme) {
   root.style.setProperty('--accent', c.accent || c.primary);
   root.style.setProperty('--accent-hover', c.accentHover || c.accent || c.primary);
   root.style.setProperty('--accent-dim', c.primary);
+
+  // Standard plugin contract variables (derived from theme colors)
+  root.style.setProperty('--bg-surface', c.surface);
+  root.style.setProperty('--bg-elevated', c.surfaceHover || c.surface);
+  root.style.setProperty('--bg-hover', c.surfaceHover || c.surface);
+  root.style.setProperty('--border-light', c.border);
+  root.style.setProperty('--font-sans', "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif");
 }
 
 // eslint-disable-next-line no-unused-vars
@@ -432,6 +439,11 @@ function clearThemeColors() {
     '--accent',
     '--accent-hover',
     '--accent-dim',
+    '--bg-surface',
+    '--bg-elevated',
+    '--bg-hover',
+    '--border-light',
+    '--font-sans',
   ];
   props.forEach((p) => root.style.removeProperty(p));
 }

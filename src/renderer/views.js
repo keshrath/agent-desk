@@ -5,7 +5,7 @@
 'use strict';
 
 import { state, dom, getTermTheme, getTermFontWeight, registry } from './state.js';
-import { loadPlugins, getPlugin, mountPlugin } from './plugin-loader.js';
+import { loadPlugins, getPlugin, mountPlugin, syncAllPlugins } from './plugin-loader.js';
 
 const _pluginViewsInit = { comm: false, tasks: false, knowledge: false, discover: false };
 let _pluginsLoaded = false;
@@ -193,6 +193,8 @@ export function applyTheme(themeId) {
     ts.term.options.theme = newTermTheme;
     ts.term.options.fontWeight = newFontWeight;
   }
+
+  syncAllPlugins();
 }
 
 // Sidebar setup

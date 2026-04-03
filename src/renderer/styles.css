@@ -25,12 +25,34 @@
   --status-exited: #a82020;
   --status-exited-bg: rgba(168, 32, 32, 0.15);
   --radius: 8px;
+  --radius-sm: 6px;
   --radius-lg: 12px;
   --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --font-mono: 'JetBrains Mono', 'Cascadia Code', 'Fira Code', monospace;
   --shadow-1: 0 1px 3px rgba(0, 0, 0, 0.1);
   --shadow-2: 0 4px 12px rgba(0, 0, 0, 0.14);
+  --shadow-3: 0 8px 24px rgba(0, 0, 0, 0.18);
   --transition: 150ms ease;
+
+  /* Standard plugin contract variables (synced to shadow DOM) */
+  --bg-surface: #f0f2f5;
+  --bg-elevated: #e4e8ed;
+  --bg-hover: #dce1e7;
+  --border-light: #d5dce3;
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --green: #1a7f37;
+  --green-dim: rgba(26, 127, 55, 0.12);
+  --yellow: #9a6700;
+  --yellow-dim: rgba(154, 103, 0, 0.12);
+  --orange: #bc4c00;
+  --orange-dim: rgba(188, 76, 0, 0.12);
+  --red: #cf222e;
+  --red-dim: rgba(207, 34, 46, 0.12);
+  --purple: #6e78a8;
+  --purple-dim: rgba(110, 120, 168, 0.12);
+  --blue: #0969da;
+  --blue-dim: rgba(9, 105, 218, 0.12);
+  --focus-ring: rgba(74, 122, 150, 0.35);
 }
 
 /* --- Design Tokens (Dark) --- */
@@ -47,12 +69,32 @@
   --accent-dim: #4a7a96;
   --shadow-1: 0 1px 3px rgba(0, 0, 0, 0.3);
   --shadow-2: 0 4px 12px rgba(0, 0, 0, 0.4);
+  --shadow-3: 0 8px 24px rgba(0, 0, 0, 0.5);
   --status-running: #4caf50;
   --status-running-bg: rgba(76, 175, 80, 0.15);
   --status-waiting: #ff9800;
   --status-waiting-bg: rgba(255, 152, 0, 0.15);
   --status-exited: #d45050;
   --status-exited-bg: rgba(212, 80, 80, 0.15);
+
+  /* Standard plugin contract variables (synced to shadow DOM) */
+  --bg-surface: #1e2830;
+  --bg-elevated: #243742;
+  --bg-hover: #2c414e;
+  --border-light: #2a3a46;
+  --green: #3fb950;
+  --green-dim: rgba(63, 185, 80, 0.15);
+  --yellow: #e3b341;
+  --yellow-dim: rgba(227, 179, 65, 0.15);
+  --orange: #f0883e;
+  --orange-dim: rgba(240, 136, 62, 0.15);
+  --red: #f85149;
+  --red-dim: rgba(248, 81, 73, 0.15);
+  --purple: #8e9ad0;
+  --purple-dim: rgba(142, 154, 208, 0.15);
+  --blue: #58a6ff;
+  --blue-dim: rgba(88, 166, 255, 0.15);
+  --focus-ring: rgba(93, 141, 168, 0.4);
 }
 
 /* --- Reset & Base --- */
