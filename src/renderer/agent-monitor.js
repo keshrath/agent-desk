@@ -23,14 +23,17 @@ const TASKS_POLL_INTERVAL = 10000;
 let _cachedTasks = [];
 let _tasksLastFetch = 0;
 let _refreshTimer = null;
+let _tasksFetchFailures = 0;
+const MAX_BACKOFF = 120000; // 2 min
 
 // ---------------------------------------------------------------------------
 // API Fetching
 // ---------------------------------------------------------------------------
 
 async function _fetchTasks() {
+  const backoff = Math.min(TASKS_POLL_INTERVAL * Math.pow(2, _tasksFetchFailures), MAX_BACKOFF);
   const now = Date.now();
-  if (now - _tasksLastFetch < TASKS_POLL_INTERVAL && _cachedTasks.length > 0) {
+  if (now - _tasksLastFetch < backoff) {
     return _cachedTasks;
   }
   try {
@@ -39,9 +42,10 @@ async function _fetchTasks() {
       const data = await res.json();
       _cachedTasks = Array.isArray(data) ? data : data.tasks || [];
       _tasksLastFetch = now;
+      _tasksFetchFailures = 0;
     }
   } catch (_e) {
-    /* service unavailable or timed out */
+    _tasksFetchFailures++;
   }
   return _cachedTasks;
 }
@@ -261,7 +265,7 @@ function render() {
     grid.innerHTML =
       '<div class="agent-monitor-empty">' +
       '<span class="material-symbols-outlined agent-monitor-empty-icon">hub</span>' +
-      '<p>No agents detected.</p>' +
+      '<p>No agent terminals running.</p>' +
       '<p class="agent-monitor-empty-hint">Launch AI agent terminals to see agents here.</p>' +
       '</div>';
     return;

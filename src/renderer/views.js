@@ -195,6 +195,24 @@ export function applyTheme(themeId) {
   }
 
   syncAllPlugins();
+
+  // Preserve the active view — theme class changes on terminalViews can
+  // disturb the layout; re-assert which view container is active.
+  const currentView = state.activeView;
+  if (currentView && currentView !== 'terminals') {
+    dom.terminalViews?.classList.remove('active');
+    const viewEls = {
+      comm: dom.viewComm,
+      tasks: dom.viewTasks,
+      knowledge: dom.viewKnowledge,
+      discover: dom.viewDiscover,
+      monitor: dom.viewMonitor,
+      events: dom.viewEvents,
+      settings: dom.settingsView,
+    };
+    const el = viewEls[currentView];
+    if (el) el.classList.add('active');
+  }
 }
 
 // Sidebar setup

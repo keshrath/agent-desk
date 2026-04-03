@@ -161,6 +161,12 @@ export function initSystemMonitor() {
   costWidget = createCostWidget();
   right.appendChild(costWidget);
 
+  // Click handler: show cost breakdown popover
+  costWidget.addEventListener('click', (e) => {
+    e.stopPropagation();
+    _toggleCostPopover();
+  });
+
   updateCostWidget();
   costInterval = setInterval(updateCostWidget, 5000);
 
@@ -173,6 +179,76 @@ export function initSystemMonitor() {
       updateStatsWidget(stats);
     }
   });
+}
+
+// ---------------------------------------------------------------------------
+// Cost Popover
+// ---------------------------------------------------------------------------
+
+let _costPopover = null;
+
+function _toggleCostPopover() {
+  if (_costPopover) {
+    _costPopover.remove();
+    _costPopover = null;
+    return;
+  }
+  if (typeof agentParser === 'undefined' || !agentParser.getTotalCost) return;
+
+  const { totalCost, agents } = agentParser.getTotalCost();
+  const anyParsed = agents.some((a) => a.hasParsedCost);
+
+  const pop = document.createElement('div');
+  pop.className = 'cost-popover';
+
+  let html = '<div class="cost-popover-title">Cost Breakdown</div>';
+  if (agents.length === 0) {
+    html += '<div class="cost-popover-empty">No active agents</div>';
+  } else {
+    for (const a of agents) {
+      const name = a.agentName || a.terminalId;
+      const prefix = a.hasParsedCost ? '$' : '~$';
+      html +=
+        '<div class="cost-popover-row">' +
+        '<span class="cost-popover-name">' +
+        name +
+        '</span>' +
+        '<span class="cost-popover-amount">' +
+        prefix +
+        a.cost.toFixed(2) +
+        '</span>' +
+        '</div>' +
+        '<div class="cost-popover-detail">' +
+        a.toolCalls +
+        ' tools, ' +
+        a.messages +
+        ' msgs</div>';
+    }
+  }
+  const prefix = anyParsed ? '$' : '~$';
+  html += '<div class="cost-popover-total">Total: ' + prefix + totalCost.toFixed(2) + '</div>';
+  pop.innerHTML = html;
+
+  // Position above the cost widget
+  document.body.appendChild(pop);
+  if (costWidget) {
+    const rect = costWidget.getBoundingClientRect();
+    pop.style.position = 'fixed';
+    pop.style.bottom = window.innerHeight - rect.top + 4 + 'px';
+    pop.style.right = window.innerWidth - rect.right + 'px';
+  }
+
+  _costPopover = pop;
+
+  // Close on outside click
+  const closeHandler = (e) => {
+    if (!pop.contains(e.target) && !costWidget.contains(e.target)) {
+      pop.remove();
+      _costPopover = null;
+      document.removeEventListener('click', closeHandler);
+    }
+  };
+  setTimeout(() => document.addEventListener('click', closeHandler), 0);
 }
 
 // ---------------------------------------------------------------------------
@@ -196,6 +272,10 @@ export function destroySystemMonitor() {
   }
   statsWidget = null;
   costWidget = null;
+  if (_costPopover) {
+    _costPopover.remove();
+    _costPopover = null;
+  }
 }
 
 registry.initSystemMonitor = initSystemMonitor;

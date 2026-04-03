@@ -120,7 +120,10 @@ const CSS_CONTRACT = [
 function syncThemeToPlugin(container) {
   const shadow = container.shadowRoot;
   if (!shadow) return;
-  const wrapper = shadow.querySelector('[class*="wrapper"]');
+  // Try specific wrapper classes first, then fall back to attribute selector
+  const wrapper =
+    shadow.querySelector('.ac-wrapper, .tb-wrapper, .ak-wrapper, .ad-wrapper') ||
+    shadow.querySelector('[class*="wrapper"]');
   if (!wrapper) return;
 
   const s = getComputedStyle(document.documentElement);

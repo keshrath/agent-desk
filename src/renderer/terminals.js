@@ -762,8 +762,10 @@ function _updateEmptyState() {
 
       container.appendChild(emptyEl);
     }
-  } else if (emptyEl) {
-    emptyEl.remove();
+  } else {
+    // Remove all empty-state elements (defensive: remove duplicates too)
+    const allEmpty = container.querySelectorAll('.empty-state');
+    allEmpty.forEach((el) => el.remove());
   }
 }
 
