@@ -426,8 +426,24 @@ function applyThemeColors(theme) {
   root.style.setProperty('--bg-surface', c.surface);
   root.style.setProperty('--bg-elevated', c.surfaceHover || c.surface);
   root.style.setProperty('--bg-hover', c.surfaceHover || c.surface);
+  root.style.setProperty('--bg-inset', c.background);
   root.style.setProperty('--border-light', c.border);
+  root.style.setProperty('--text-secondary', c.textSecondary);
+  root.style.setProperty('--accent-solid', accentColor);
   root.style.setProperty('--font-sans', "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif");
+
+  // Shadow variants for plugin sync
+  const isDark = (theme.type || 'dark') === 'dark';
+  const shadowAlpha = isDark ? '0.6' : '0.3';
+  const shadowAlpha2 = isDark ? '0.3' : '0.15';
+  root.style.setProperty(
+    '--shadow-hover',
+    `0px 2px 4px 0px rgba(0,0,0,${shadowAlpha}), 0px 4px 12px 4px rgba(0,0,0,${shadowAlpha2})`,
+  );
+  root.style.setProperty(
+    '--shadow-panel',
+    `-2px 0px 8px 0px rgba(0,0,0,${shadowAlpha}), -4px 0px 16px 2px rgba(0,0,0,${shadowAlpha2})`,
+  );
 }
 
 // eslint-disable-next-line no-unused-vars

@@ -1,6 +1,6 @@
 {
   "name": "agent-desk",
-  "version": "1.0.19",
+  "version": "1.0.20",
   "description": "Unified control center for AI coding agents — terminals, dashboards, and orchestration in one app",
   "author": "Mathias Markl <mathias.markl@mukit.at>",
   "license": "MIT",
@@ -92,6 +92,7 @@
     "agent-tasks": "^1.9.10",
     "dockview-core": "^5.1.0",
     "electron-updater": "^6.8.3",
+    "morphdom": "^2.7.8",
     "node-pty": "^1.1.0",
     "ws": "^8.20.0"
   },
