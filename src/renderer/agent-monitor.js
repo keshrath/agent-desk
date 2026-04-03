@@ -8,6 +8,7 @@
 'use strict';
 
 import { state, registry } from './state.js';
+import { morph, esc, escAttr } from './dom-utils.js';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -223,34 +224,39 @@ function render() {
   }
 
   const summary = _renderStatusSummary(agents);
-  topBar.innerHTML =
+  morph(
+    topBar,
     '<div class="agent-monitor-stats">' +
-    '<span class="agent-monitor-count">' +
-    agents.length +
-    ' agent' +
-    (agents.length !== 1 ? 's' : '') +
-    '</span>' +
-    '<span class="agent-monitor-summary">' +
-    summary +
-    '</span>' +
-    '</div>' +
-    '<button class="agent-monitor-launch-btn" title="Launch Agent">' +
-    '<span class="material-symbols-outlined">add</span> Launch Agent' +
-    '</button>';
+      '<span class="agent-monitor-count">' +
+      agents.length +
+      ' agent' +
+      (agents.length !== 1 ? 's' : '') +
+      '</span>' +
+      '<span class="agent-monitor-summary">' +
+      esc(summary) +
+      '</span>' +
+      '</div>' +
+      '<button class="agent-monitor-launch-btn" title="Launch Agent">' +
+      '<span class="material-symbols-outlined">add</span> Launch Agent' +
+      '</button>',
+  );
 
-  const launchBtn = topBar.querySelector('.agent-monitor-launch-btn');
-  if (launchBtn) {
-    launchBtn.onclick = () => {
-      registry.switchView('terminals');
-      const profiles = typeof getProfiles === 'function' ? getProfiles() : [];
-      const shellIds = new Set(['default-shell']);
-      const agentProfile = profiles.find((p) => !shellIds.has(p.id) && p.command && p.command !== '') || profiles[0];
-      if (agentProfile) {
-        registry.createTerminalFromProfile(agentProfile);
-      } else {
-        registry.createTerminal();
+  // Delegate launch button click on topBar (stable parent)
+  if (!topBar._delegated) {
+    topBar.addEventListener('click', (e) => {
+      if (e.target.closest('.agent-monitor-launch-btn')) {
+        registry.switchView('terminals');
+        const profiles = typeof getProfiles === 'function' ? getProfiles() : [];
+        const shellIds = new Set(['default-shell']);
+        const agentProfile = profiles.find((p) => !shellIds.has(p.id) && p.command && p.command !== '') || profiles[0];
+        if (agentProfile) {
+          registry.createTerminalFromProfile(agentProfile);
+        } else {
+          registry.createTerminal();
+        }
       }
-    };
+    });
+    topBar._delegated = true;
   }
 
   // Card grid
@@ -261,13 +267,33 @@ function render() {
     container.appendChild(grid);
   }
 
+  // Delegate card clicks on grid (stable parent)
+  if (!grid._delegated) {
+    grid.addEventListener('click', (e) => {
+      const card = e.target.closest('.agent-monitor-card');
+      if (!card) return;
+      const terminalId = card.dataset.terminalId;
+      // If clicking on task badge, go to tasks view instead
+      const taskEl = e.target.closest('.agent-monitor-card-task');
+      if (taskEl) {
+        registry.switchView('tasks');
+        return;
+      }
+      registry.switchView('terminals');
+      registry._activateTerminalById(terminalId);
+    });
+    grid._delegated = true;
+  }
+
   if (agents.length === 0) {
-    grid.innerHTML =
+    morph(
+      grid,
       '<div class="agent-monitor-empty">' +
-      '<span class="material-symbols-outlined agent-monitor-empty-icon">hub</span>' +
-      '<p>No agent terminals running.</p>' +
-      '<p class="agent-monitor-empty-hint">Launch AI agent terminals to see agents here.</p>' +
-      '</div>';
+        '<span class="material-symbols-outlined agent-monitor-empty-icon">hub</span>' +
+        '<p>No agent terminals running.</p>' +
+        '<p class="agent-monitor-empty-hint">Launch AI agent terminals to see agents here.</p>' +
+        '</div>',
+    );
     return;
   }
 
@@ -299,57 +325,41 @@ function render() {
 function _updateCard(card, agent) {
   const statusColor = _statusColor(agent.status);
 
-  card.innerHTML =
+  morph(
+    card,
     '<div class="agent-monitor-card-header">' +
-    '<span class="agent-monitor-dot" style="background:' +
-    statusColor +
-    '"></span>' +
-    '<span class="agent-monitor-name">' +
-    _escapeHtml(agent.name) +
-    '</span>' +
-    (agent.isAgent ? '<span class="agent-monitor-badge-agent">AI</span>' : '') +
-    '</div>' +
-    '<div class="agent-monitor-card-status">' +
-    _statusLabel(agent.status) +
-    '</div>' +
-    (agent.task
-      ? '<div class="agent-monitor-card-task" data-task-id="' +
-        agent.task.id +
-        '">' +
-        '<span class="material-symbols-outlined">task_alt</span> ' +
-        '<span class="agent-monitor-task-id">[T' +
-        agent.task.id +
-        ']</span> ' +
-        _escapeHtml((agent.task.title || '').slice(0, 40)) +
-        '</div>'
-      : '') +
-    (agent.activity ? '<div class="agent-monitor-card-activity">' + _escapeHtml(agent.activity) + '</div>' : '') +
-    '<div class="agent-monitor-card-meta">' +
-    '<span title="Tool calls"><span class="material-symbols-outlined">build</span> ' +
-    agent.toolCount +
-    '</span>' +
-    '<span title="Uptime"><span class="material-symbols-outlined">schedule</span> ' +
-    _formatUptime(agent.uptime) +
-    '</span>' +
-    '</div>';
-
-  // Click card -> focus terminal
-  card.onclick = (e) => {
-    // If clicking on task badge, go to tasks view instead
-    const taskEl = e.target.closest('.agent-monitor-card-task');
-    if (taskEl) {
-      registry.switchView('tasks');
-      return;
-    }
-    registry.switchView('terminals');
-    registry._activateTerminalById(agent.terminalId);
-  };
-}
-
-function _escapeHtml(str) {
-  const div = document.createElement('div');
-  div.textContent = str;
-  return div.innerHTML;
+      '<span class="agent-monitor-dot" style="background:' +
+      escAttr(statusColor) +
+      '"></span>' +
+      '<span class="agent-monitor-name">' +
+      esc(agent.name) +
+      '</span>' +
+      (agent.isAgent ? '<span class="agent-monitor-badge-agent">AI</span>' : '') +
+      '</div>' +
+      '<div class="agent-monitor-card-status">' +
+      esc(_statusLabel(agent.status)) +
+      '</div>' +
+      (agent.task
+        ? '<div class="agent-monitor-card-task" data-task-id="' +
+          escAttr(agent.task.id) +
+          '">' +
+          '<span class="material-symbols-outlined">task_alt</span> ' +
+          '<span class="agent-monitor-task-id">[T' +
+          esc(agent.task.id) +
+          ']</span> ' +
+          esc((agent.task.title || '').slice(0, 40)) +
+          '</div>'
+        : '') +
+      (agent.activity ? '<div class="agent-monitor-card-activity">' + esc(agent.activity) + '</div>' : '') +
+      '<div class="agent-monitor-card-meta">' +
+      '<span title="Tool calls"><span class="material-symbols-outlined">build</span> ' +
+      esc(agent.toolCount) +
+      '</span>' +
+      '<span title="Uptime"><span class="material-symbols-outlined">schedule</span> ' +
+      esc(_formatUptime(agent.uptime)) +
+      '</span>' +
+      '</div>',
+  );
 }
 
 // ---------------------------------------------------------------------------

@@ -5,6 +5,7 @@
 'use strict';
 
 import { state, registry } from './state.js';
+import { morph, esc, escAttr } from './dom-utils.js';
 
 // Terminal Context Menu (used by layout tab + keybinds)
 
@@ -343,38 +344,42 @@ export function showCommandPalette() {
   let filtered = _getAllCommands();
 
   function renderList() {
-    list.innerHTML = '';
-    filtered.forEach((cmd, i) => {
-      const item = document.createElement('div');
-      item.className = 'command-palette-item' + (i === selectedIndex ? ' selected' : '');
-      const cmdIcon = document.createElement('span');
-      cmdIcon.className = 'material-symbols-outlined command-palette-icon';
-      cmdIcon.textContent = cmd.icon;
-      item.appendChild(cmdIcon);
-      const cmdLabel = document.createElement('span');
-      cmdLabel.className = 'command-palette-label';
-      cmdLabel.textContent = cmd.label;
-      item.appendChild(cmdLabel);
-      if (cmd.shortcut) {
-        const cmdKbd = document.createElement('kbd');
-        cmdKbd.className = 'command-palette-shortcut';
-        cmdKbd.textContent = cmd.shortcut;
-        item.appendChild(cmdKbd);
-      }
-      item.addEventListener('mouseenter', () => {
-        selectedIndex = i;
-        renderList();
-      });
-      item.addEventListener('click', () => {
-        hideCommandPalette();
-        cmd.action();
-      });
-      list.appendChild(item);
-    });
+    const html = filtered
+      .map(
+        (cmd, i) =>
+          `<div class="command-palette-item${i === selectedIndex ? ' selected' : ''}" data-index="${i}">` +
+          `<span class="material-symbols-outlined command-palette-icon">${esc(cmd.icon)}</span>` +
+          `<span class="command-palette-label">${esc(cmd.label)}</span>` +
+          (cmd.shortcut ? `<kbd class="command-palette-shortcut">${esc(cmd.shortcut)}</kbd>` : '') +
+          `</div>`,
+      )
+      .join('');
+    morph(list, html);
     // Scroll selected item into view
     const sel = list.querySelector('.command-palette-item.selected');
     if (sel) sel.scrollIntoView({ block: 'nearest' });
   }
+
+  // Event delegation for list items
+  list.addEventListener('mouseover', (e) => {
+    const item = e.target.closest('.command-palette-item[data-index]');
+    if (!item) return;
+    const idx = parseInt(item.dataset.index, 10);
+    if (idx !== selectedIndex) {
+      selectedIndex = idx;
+      renderList();
+    }
+  });
+
+  list.addEventListener('click', (e) => {
+    const item = e.target.closest('.command-palette-item[data-index]');
+    if (!item) return;
+    const idx = parseInt(item.dataset.index, 10);
+    if (filtered[idx]) {
+      hideCommandPalette();
+      filtered[idx].action();
+    }
+  });
 
   input.addEventListener('input', () => {
     filtered = _fuzzyFilterCommands(input.value);
@@ -471,15 +476,15 @@ export function showQuickSwitcher() {
     return items;
   }
 
+  let _lastFilteredItems = [];
+
   function render(query) {
     const items = getFilteredTerminals(query);
-    list.innerHTML = '';
+    _lastFilteredItems = items;
 
     if (items.length === 0) {
-      const empty = document.createElement('div');
-      empty.className = 'quick-switcher-empty';
-      empty.textContent = query ? 'No matching terminals' : 'No terminals open';
-      list.appendChild(empty);
+      const emptyMsg = query ? 'No matching terminals' : 'No terminals open';
+      morph(list, `<div class="quick-switcher-empty">${esc(emptyMsg)}</div>`);
       selectedIdx = -1;
       return;
     }
@@ -491,52 +496,31 @@ export function showQuickSwitcher() {
       selectedIdx = 0;
     }
 
-    items.forEach((item, idx) => {
-      const row = document.createElement('div');
-      row.className = 'quick-switcher-item';
-      if (item.id === state.activeTerminalId) row.classList.add('current');
-      if (idx === selectedIdx) row.classList.add('selected');
-
-      const dot = document.createElement('span');
-      dot.className = 'qs-dot ' + (item.ts.status || 'idle');
-
-      const icon = document.createElement('span');
-      icon.className = 'qs-icon material-symbols-outlined';
-      const agentNames = new Set(['claude', 'opencode']);
-      icon.textContent = agentNames.has((item.title || '').toLowerCase()) ? 'smart_toy' : 'terminal';
-
-      const title = document.createElement('span');
-      title.className = 'qs-title';
-      title.textContent = item.title;
-
-      const badge = document.createElement('span');
-      badge.className = 'qs-badge';
-      badge.textContent = item.ts.status || 'idle';
-
-      row.appendChild(dot);
-      row.appendChild(icon);
-      row.appendChild(title);
-
-      if (item.id === state.activeTerminalId) {
-        const active = document.createElement('span');
-        active.className = 'qs-active';
-        active.textContent = 'active';
-        row.appendChild(active);
-      }
-
-      row.appendChild(badge);
-
-      row.addEventListener('click', () => {
-        selectAndSwitch(item.id);
-      });
-
-      row.addEventListener('mouseenter', () => {
-        selectedIdx = idx;
-        updateSelection();
-      });
-
-      list.appendChild(row);
-    });
+    const agentNames = new Set(['claude', 'opencode']);
+    const html = items
+      .map((item, idx) => {
+        const classes = [
+          'quick-switcher-item',
+          item.id === state.activeTerminalId ? 'current' : '',
+          idx === selectedIdx ? 'selected' : '',
+        ]
+          .filter(Boolean)
+          .join(' ');
+        const statusClass = item.ts.status || 'idle';
+        const iconName = agentNames.has((item.title || '').toLowerCase()) ? 'smart_toy' : 'terminal';
+        const activeTag = item.id === state.activeTerminalId ? '<span class="qs-active">active</span>' : '';
+        return (
+          `<div class="${escAttr(classes)}" data-index="${idx}" data-terminal-id="${escAttr(item.id)}">` +
+          `<span class="qs-dot ${escAttr(statusClass)}"></span>` +
+          `<span class="qs-icon material-symbols-outlined">${esc(iconName)}</span>` +
+          `<span class="qs-title">${esc(item.title)}</span>` +
+          activeTag +
+          `<span class="qs-badge">${esc(statusClass)}</span>` +
+          `</div>`
+        );
+      })
+      .join('');
+    morph(list, html);
   }
 
   function updateSelection() {
@@ -546,6 +530,23 @@ export function showQuickSwitcher() {
       rows[selectedIdx].scrollIntoView({ block: 'nearest' });
     }
   }
+
+  // Event delegation for quick switcher list items
+  list.addEventListener('click', (e) => {
+    const row = e.target.closest('.quick-switcher-item[data-terminal-id]');
+    if (!row) return;
+    selectAndSwitch(row.dataset.terminalId);
+  });
+
+  list.addEventListener('mouseover', (e) => {
+    const row = e.target.closest('.quick-switcher-item[data-index]');
+    if (!row) return;
+    const idx = parseInt(row.dataset.index, 10);
+    if (idx !== selectedIdx) {
+      selectedIdx = idx;
+      updateSelection();
+    }
+  });
 
   function selectAndSwitch(id) {
     hideQuickSwitcher();

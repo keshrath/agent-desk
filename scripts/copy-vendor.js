@@ -46,6 +46,11 @@ const copies = [
     src: 'node_modules/dockview-core/dist/dockview-core.min.js',
     dst: 'dockview/dockview-core.min.js',
   },
+  // morphdom
+  {
+    src: 'node_modules/morphdom/dist/morphdom-umd.min.js',
+    dst: 'morphdom/morphdom.min.js',
+  },
 ];
 
 for (const { src, dst } of copies) {

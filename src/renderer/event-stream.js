@@ -36,6 +36,31 @@ const eventStream = (function () {
     success: '#4caf50',
   };
 
+  // -- morphdom helpers (mirror dom-utils.js for non-module script) ----------
+
+  function _morph(el, newInnerHTML) {
+    const wrap = document.createElement(el.tagName);
+    wrap.innerHTML = newInnerHTML;
+    morphdom(el, wrap, { childrenOnly: true });
+  }
+
+  function _esc(str) {
+    if (str == null) return '';
+    const d = document.createElement('div');
+    d.textContent = String(str);
+    return d.innerHTML;
+  }
+
+  function _escAttr(str) {
+    if (str == null) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  }
+
   const FILTER_GROUPS = [
     { key: 'tools', icon: 'build', label: 'Tools', types: ['agent:tool-call', 'agent:file-modified'] },
     { key: 'errors', icon: 'error', label: 'Errors', types: ['error'] },
@@ -278,17 +303,34 @@ const eventStream = (function () {
     return _events.filter(_matchesFilters);
   }
 
+  function _eventToHtml(enrichedEvent) {
+    const config = EVENT_TYPES[enrichedEvent.type] || { icon: 'info', color: 'var(--text-muted)', label: 'Other' };
+    const severityColor = SEVERITY_COLORS[enrichedEvent.severity] || SEVERITY_COLORS.info;
+
+    return (
+      `<div class="es-event es-severity-${_escAttr(enrichedEvent.severity)}"` +
+      ` style="border-left-color:${_escAttr(severityColor)}"` +
+      ` data-event-id="${_escAttr(String(enrichedEvent.id))}">` +
+      `<span class="material-symbols-outlined es-event-icon"` +
+      ` style="color:${_escAttr(config.color)}">${_esc(config.icon)}</span>` +
+      `<div class="es-event-content">` +
+      `<span class="es-event-desc" title="${_escAttr(enrichedEvent.content)}">${_esc(enrichedEvent.content)}</span>` +
+      `<span class="es-event-time" data-ts="${_escAttr(String(enrichedEvent.timestamp))}">${_esc(_relativeTime(enrichedEvent.timestamp))}</span>` +
+      `</div></div>`
+    );
+  }
+
   function _rebuildList() {
     if (!_listEl) return;
-    _listEl.innerHTML = '';
-    _displayedCount = 0;
 
     const visible = _getFilteredEvents();
     // Show newest first, paginated
     const toShow = visible.slice(Math.max(0, visible.length - PAGE_SIZE));
+    const htmlParts = [];
     for (let i = toShow.length - 1; i >= 0; i--) {
-      _addEventEl(toShow[i]);
+      htmlParts.push(_eventToHtml(toShow[i]));
     }
+    _morph(_listEl, htmlParts.join(''));
     _displayedCount = toShow.length;
 
     _updateLoadMoreBtn(visible.length);
@@ -360,21 +402,25 @@ const eventStream = (function () {
     el.appendChild(iconEl);
     el.appendChild(content);
 
-    el.addEventListener('click', (e) => {
-      if (e.target.closest('.es-event-detail')) return;
-      _toggleDetail(el, enrichedEvent);
-    });
-
+    // Click handling is done via event delegation on _listEl
     _listEl.appendChild(el);
   }
 
-  function _toggleDetail(el, enrichedEvent) {
+  function _findEventById(id) {
+    return _events.find((e) => e.id === id) || null;
+  }
+
+  function _toggleDetail(el) {
     const existing = el.querySelector('.es-event-detail');
     if (existing) {
       existing.remove();
       el.classList.remove('expanded');
       return;
     }
+
+    const eventId = parseInt(el.dataset.eventId, 10);
+    const enrichedEvent = _findEventById(eventId);
+    if (!enrichedEvent) return;
 
     el.classList.add('expanded');
     const detail = document.createElement('div');
@@ -389,12 +435,7 @@ const eventStream = (function () {
       const jumpBtn = document.createElement('button');
       jumpBtn.className = 'es-detail-btn';
       jumpBtn.textContent = 'Go to terminal';
-      jumpBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        if (window.__agentDeskRegistry && window.__agentDeskRegistry.switchToTerminal) {
-          window.__agentDeskRegistry.switchToTerminal(enrichedEvent.terminalId);
-        }
-      });
+      jumpBtn.dataset.terminalId = enrichedEvent.terminalId;
       detail.appendChild(jumpBtn);
     }
 
@@ -606,6 +647,29 @@ const eventStream = (function () {
     _listEl = document.createElement('div');
     _listEl.className = 'es-list';
     _listEl.id = 'es-list';
+
+    // Event delegation for event items and detail buttons
+    _listEl.addEventListener('click', (e) => {
+      // Handle "Go to terminal" button clicks
+      const jumpBtn = e.target.closest('.es-detail-btn');
+      if (jumpBtn) {
+        e.stopPropagation();
+        const terminalId = jumpBtn.dataset.terminalId;
+        if (terminalId && window.__agentDeskRegistry && window.__agentDeskRegistry.switchToTerminal) {
+          window.__agentDeskRegistry.switchToTerminal(terminalId);
+        }
+        return;
+      }
+
+      // Ignore clicks inside detail area (except the button handled above)
+      if (e.target.closest('.es-event-detail')) return;
+
+      // Handle event row clicks — toggle detail
+      const eventEl = e.target.closest('.es-event');
+      if (eventEl) {
+        _toggleDetail(eventEl);
+      }
+    });
 
     // Load more button
     _loadMoreBtn = document.createElement('button');

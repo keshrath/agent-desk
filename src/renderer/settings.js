@@ -623,92 +623,88 @@ function injectStyle() {
   _styleInjected = true;
 }
 
+// ── morphdom helpers (mirror dom-utils.js for non-module script) ─────
+
+function _morph(el, newInnerHTML) {
+  const wrap = document.createElement(el.tagName);
+  wrap.innerHTML = newInnerHTML;
+  morphdom(el, wrap, { childrenOnly: true });
+}
+
+function _esc(str) {
+  if (str == null) return '';
+  const d = document.createElement('div');
+  d.textContent = String(str);
+  return d.innerHTML;
+}
+
+function _escAttr(str) {
+  if (str == null) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
 // ── Render ────────────────────────────────────────────────────────────
 
-function renderField(f, settings) {
-  const row = document.createElement('div');
-  row.className = 'settings-field';
-
-  const label = document.createElement('label');
-  label.className = 'settings-label';
-  label.textContent = f.label;
-  row.appendChild(label);
+function renderFieldHTML(f, settings) {
+  const val = settings[f.key];
+  const labelHtml = `<label class="settings-label">${_esc(f.label)}</label>`;
 
   if (f.type === 'checkbox') {
-    const wrap = document.createElement('label');
-    wrap.className = 'settings-checkbox-wrap';
-    const input = document.createElement('input');
-    input.type = 'checkbox';
-    input.checked = settings[f.key];
-    input.addEventListener('change', () => field(f.key, input.checked));
-    const toggle = document.createElement('span');
-    toggle.className = 'settings-toggle';
-    wrap.appendChild(input);
-    wrap.appendChild(toggle);
-    row.appendChild(wrap);
+    return `<div class="settings-field">
+      ${labelHtml}
+      <label class="settings-checkbox-wrap">
+        <input type="checkbox" data-setting-key="${_escAttr(f.key)}" ${val ? 'checked' : ''}>
+        <span class="settings-toggle"></span>
+      </label>
+    </div>`;
   } else if (f.type === 'select') {
-    const select = document.createElement('select');
-    select.className = 'settings-select';
-    for (const opt of f.options) {
-      const o = document.createElement('option');
-      o.value = opt;
-      o.textContent = opt;
-      if (String(settings[f.key]) === opt) o.selected = true;
-      select.appendChild(o);
-    }
-    select.addEventListener('change', () => field(f.key, select.value));
-    row.appendChild(select);
+    const optsHtml = f.options
+      .map((opt) => `<option value="${_escAttr(opt)}" ${String(val) === opt ? 'selected' : ''}>${_esc(opt)}</option>`)
+      .join('');
+    return `<div class="settings-field">
+      ${labelHtml}
+      <select class="settings-select" data-setting-key="${_escAttr(f.key)}">${optsHtml}</select>
+    </div>`;
   } else if (f.type === 'number') {
-    const input = document.createElement('input');
-    input.type = 'number';
-    input.className = 'settings-input';
-    input.value = settings[f.key];
-    if (f.min != null) input.min = f.min;
-    if (f.max != null) input.max = f.max;
-    if (f.step != null) input.step = f.step;
-    input.addEventListener('change', () => {
-      let v = parseFloat(input.value);
-      if (f.min != null && v < f.min) v = f.min;
-      if (f.max != null && v > f.max) v = f.max;
-      input.value = v;
-      field(f.key, v);
-    });
-    row.appendChild(input);
+    return `<div class="settings-field">
+      ${labelHtml}
+      <input type="number" class="settings-input" data-setting-key="${_escAttr(f.key)}"
+        value="${_escAttr(String(val))}"
+        ${f.min != null ? `min="${f.min}"` : ''} ${f.max != null ? `max="${f.max}"` : ''} ${f.step != null ? `step="${f.step}"` : ''}>
+    </div>`;
   } else if (f.type === 'directory') {
-    const wrap = document.createElement('div');
-    wrap.style.cssText = 'display:flex;gap:8px;flex:1;min-width:0;';
-    const input = document.createElement('input');
-    input.type = 'text';
-    input.className = 'settings-input';
-    input.style.flex = '1';
-    input.value = settings[f.key] || '';
-    input.placeholder = f.placeholder || '';
-    input.addEventListener('change', () => field(f.key, input.value));
-    wrap.appendChild(input);
-    const browseBtn = document.createElement('button');
-    browseBtn.className = 'settings-reset';
-    browseBtn.style.cssText = 'margin:0;padding:6px 12px;white-space:nowrap;';
-    browseBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px">folder_open</span>';
-    browseBtn.title = 'Browse...';
-    browseBtn.addEventListener('click', async () => {
-      const dir = await agentDesk.dialog.openDirectory({ defaultPath: input.value || undefined });
-      if (dir) {
-        input.value = dir;
-        field(f.key, dir);
-      }
-    });
-    wrap.appendChild(browseBtn);
-    row.appendChild(wrap);
+    return `<div class="settings-field">
+      ${labelHtml}
+      <div style="display:flex;gap:8px;flex:1;min-width:0;">
+        <input type="text" class="settings-input" style="flex:1"
+          data-setting-key="${_escAttr(f.key)}" value="${_escAttr(val || '')}"
+          placeholder="${_escAttr(f.placeholder || '')}">
+        <button class="settings-reset" style="margin:0;padding:6px 12px;white-space:nowrap;"
+          data-browse-for="${_escAttr(f.key)}" title="Browse...">
+          <span class="material-symbols-outlined" style="font-size:16px">folder_open</span>
+        </button>
+      </div>
+    </div>`;
   } else {
-    const input = document.createElement('input');
-    input.type = 'text';
-    input.className = 'settings-input';
-    input.value = settings[f.key];
-    input.addEventListener('change', () => field(f.key, input.value));
-    row.appendChild(input);
+    return `<div class="settings-field">
+      ${labelHtml}
+      <input type="text" class="settings-input" data-setting-key="${_escAttr(f.key)}"
+        value="${_escAttr(String(val))}">
+    </div>`;
   }
+}
 
-  return row;
+// Legacy DOM-returning wrapper (used by custom sections that still need it)
+function renderField(f, settings) {
+   
+  const tmp = document.createElement('div');
+  tmp.innerHTML = renderFieldHTML(f, settings);
+  return tmp.firstElementChild;
 }
 
 // ── Profile Management ───────────────────────────────────────────────
@@ -774,59 +770,32 @@ function _parseArgs(str) {
 // Themes Section
 // -----------------------------------------------------------------------------
 
-function _buildThemeCard(theme, currentId, prefDarkId, prefLightId) {
-  const card = document.createElement('div');
+function _buildThemeCardHTML(theme, currentId, prefDarkId, prefLightId) {
   const isActive = theme.id === currentId;
   const isPreferred =
     (theme.type === 'dark' && theme.id === prefDarkId) || (theme.type === 'light' && theme.id === prefLightId);
-  card.className = 'theme-card' + (isActive ? ' active' : '') + (isPreferred && !isActive ? ' preferred' : '');
-
-  const swatch = document.createElement('div');
-  swatch.className = 'theme-swatch';
-  swatch.style.background = theme.colors.background;
-  swatch.style.borderColor = theme.colors.border;
-
-  const colors = document.createElement('div');
-  colors.className = 'theme-swatch-colors';
+  const cls = 'theme-card' + (isActive ? ' active' : '') + (isPreferred && !isActive ? ' preferred' : '');
   const tc = theme.colors.terminal || {};
-  ['red', 'green', 'blue', 'yellow', 'magenta', 'cyan'].forEach((c) => {
-    const dot = document.createElement('span');
-    dot.className = 'theme-color-dot';
-    dot.style.background = tc[c] || '#888';
-    colors.appendChild(dot);
-  });
-  swatch.appendChild(colors);
-
-  const textPreview = document.createElement('div');
-  textPreview.className = 'theme-swatch-text';
-  textPreview.style.color = theme.colors.text;
-  textPreview.textContent = 'Aa';
-  swatch.appendChild(textPreview);
-
-  const accentBar = document.createElement('div');
-  accentBar.className = 'theme-swatch-accent';
-  accentBar.style.background = theme.colors.accent || theme.colors.primary;
-  swatch.appendChild(accentBar);
-
-  const name = document.createElement('div');
-  name.className = 'theme-card-name';
-  name.textContent = theme.name;
-
-  card.appendChild(swatch);
-  card.appendChild(name);
-
-  if (!theme.builtin) {
-    const delBtn = document.createElement('button');
-    delBtn.className = 'theme-card-delete';
-    delBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size:14px">close</span>';
-    delBtn.title = 'Delete theme';
-    card.appendChild(delBtn);
-  }
-
-  return card;
+  const dots = ['red', 'green', 'blue', 'yellow', 'magenta', 'cyan']
+    .map((c) => `<span class="theme-color-dot" style="background:${_escAttr(tc[c] || '#888')}"></span>`)
+    .join('');
+  const delBtnHtml = !theme.builtin
+    ? `<button class="theme-card-delete" data-theme-delete="${_escAttr(theme.id)}" title="Delete theme">
+        <span class="material-symbols-outlined" style="font-size:14px">close</span>
+      </button>`
+    : '';
+  return `<div class="${cls}" data-theme-select="${_escAttr(theme.id)}" data-theme-type="${_escAttr(theme.type)}">
+    <div class="theme-swatch" style="background:${_escAttr(theme.colors.background)};border-color:${_escAttr(theme.colors.border)}">
+      <div class="theme-swatch-colors">${dots}</div>
+      <div class="theme-swatch-text" style="color:${_escAttr(theme.colors.text)}">Aa</div>
+      <div class="theme-swatch-accent" style="background:${_escAttr(theme.colors.accent || theme.colors.primary)}"></div>
+    </div>
+    <div class="theme-card-name">${_esc(theme.name)}</div>
+    ${delBtnHtml}
+  </div>`;
 }
 
-function _renderThemesSection(sec, container) {
+function _renderThemesSectionHTML(_container) {
   const allThemes = typeof getAllThemes === 'function' ? getAllThemes() : [];
   const currentId = _settings.themeId || 'default-dark';
   const prefDarkId = _settings.preferredDarkTheme || 'default-dark';
@@ -835,124 +804,51 @@ function _renderThemesSection(sec, container) {
   const darkThemes = allThemes.filter((t) => t.type === 'dark');
   const lightThemes = allThemes.filter((t) => t.type === 'light');
 
-  // Dark Themes group
-  const darkSubtitle = document.createElement('div');
-  darkSubtitle.className = 'theme-group-subtitle';
-  darkSubtitle.textContent = 'Dark Themes';
-  sec.appendChild(darkSubtitle);
+  const darkCardsHtml = darkThemes.map((t) => _buildThemeCardHTML(t, currentId, prefDarkId, prefLightId)).join('');
+  const lightCardsHtml = lightThemes.map((t) => _buildThemeCardHTML(t, currentId, prefDarkId, prefLightId)).join('');
 
-  const darkGrid = document.createElement('div');
-  darkGrid.className = 'theme-grid';
-  darkThemes.forEach((theme) => {
-    const card = _buildThemeCard(theme, currentId, prefDarkId, prefLightId);
-    card.addEventListener('click', () => {
-      field('themeId', theme.id);
-      field('theme', 'dark');
-      field('preferredDarkTheme', theme.id);
-      _renderThemesSection_refresh(sec, container);
-    });
-    const delBtn = card.querySelector('.theme-card-delete');
-    if (delBtn) {
-      delBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        if (typeof deleteCustomTheme === 'function') deleteCustomTheme(theme.id);
-        if (currentId === theme.id) {
-          field('themeId', 'default-dark');
-          field('theme', 'dark');
-        }
-        if (prefDarkId === theme.id) field('preferredDarkTheme', 'default-dark');
-        initSettings(container);
-      });
-    }
-    darkGrid.appendChild(card);
-  });
-  sec.appendChild(darkGrid);
-
-  // Light Themes group
-  const lightSubtitle = document.createElement('div');
-  lightSubtitle.className = 'theme-group-subtitle';
-  lightSubtitle.textContent = 'Light Themes';
-  sec.appendChild(lightSubtitle);
-
-  const lightGrid = document.createElement('div');
-  lightGrid.className = 'theme-grid';
-  lightThemes.forEach((theme) => {
-    const card = _buildThemeCard(theme, currentId, prefDarkId, prefLightId);
-    card.addEventListener('click', () => {
-      field('themeId', theme.id);
-      field('theme', 'light');
-      field('preferredLightTheme', theme.id);
-      _renderThemesSection_refresh(sec, container);
-    });
-    const delBtn = card.querySelector('.theme-card-delete');
-    if (delBtn) {
-      delBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        if (typeof deleteCustomTheme === 'function') deleteCustomTheme(theme.id);
-        if (currentId === theme.id) {
-          field('themeId', 'default-light');
-          field('theme', 'light');
-        }
-        if (prefLightId === theme.id) field('preferredLightTheme', 'default-light');
-        initSettings(container);
-      });
-    }
-    lightGrid.appendChild(card);
-  });
-  sec.appendChild(lightGrid);
-
-  // Follow System Theme checkbox
-  const sysRow = document.createElement('div');
-  sysRow.className = 'settings-field theme-follow-system';
-  const sysLabel = document.createElement('label');
-  sysLabel.textContent = 'Follow System Theme';
-  const sysCheck = document.createElement('input');
-  sysCheck.type = 'checkbox';
-  sysCheck.checked = _settings.followSystemTheme === true;
-  sysCheck.addEventListener('change', () => {
-    field('followSystemTheme', sysCheck.checked);
-    window.dispatchEvent(new CustomEvent('follow-system-theme-changed', { detail: sysCheck.checked }));
-  });
-  sysRow.appendChild(sysLabel);
-  sysRow.appendChild(sysCheck);
-  sec.appendChild(sysRow);
-
-  const hint = document.createElement('div');
-  hint.style.cssText = 'font-size:12px;color:var(--text-muted);margin:4px 0 12px;padding:0 4px';
-  hint.textContent =
-    'When enabled, the app auto-switches between your preferred light and dark themes based on the OS setting.';
-  sec.appendChild(hint);
-
-  // Action buttons
-  const actions = document.createElement('div');
-  actions.className = 'theme-actions';
-
-  const customizeBtn = document.createElement('button');
-  customizeBtn.className = 'settings-btn';
-  customizeBtn.innerHTML =
-    '<span class="material-symbols-outlined" style="font-size:16px">edit</span> Customize Current';
-  customizeBtn.addEventListener('click', () => {
-    _showThemeEditor(sec, container, currentId);
-  });
-
-  const createBtn = document.createElement('button');
-  createBtn.className = 'settings-btn theme-create-btn';
-  createBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px">add</span> Create New Theme';
-  createBtn.addEventListener('click', () => {
-    _showCreateThemeDialog(sec, container, currentId);
-  });
-
-  actions.appendChild(customizeBtn);
-  actions.appendChild(createBtn);
-  sec.appendChild(actions);
+  return `
+    <div class="theme-group-subtitle">Dark Themes</div>
+    <div class="theme-grid">${darkCardsHtml}</div>
+    <div class="theme-group-subtitle">Light Themes</div>
+    <div class="theme-grid">${lightCardsHtml}</div>
+    <div class="settings-field theme-follow-system">
+      <label>Follow System Theme</label>
+      <input type="checkbox" data-setting-key="followSystemTheme" data-follow-system="1"
+        ${_settings.followSystemTheme === true ? 'checked' : ''}>
+    </div>
+    <div style="font-size:12px;color:var(--text-muted);margin:4px 0 12px;padding:0 4px">
+      When enabled, the app auto-switches between your preferred light and dark themes based on the OS setting.
+    </div>
+    <div class="theme-actions">
+      <button class="settings-btn" data-theme-customize="${_escAttr(currentId)}">
+        <span class="material-symbols-outlined" style="font-size:16px">edit</span> Customize Current
+      </button>
+      <button class="settings-btn theme-create-btn" data-theme-create="${_escAttr(currentId)}">
+        <span class="material-symbols-outlined" style="font-size:16px">add</span> Create New Theme
+      </button>
+    </div>`;
 }
 
-function _renderThemesSection_refresh(sec, container) {
+function _renderThemesSection(sec, container) {
+  // Preserve the header, morph only the content after it
   const header = sec.querySelector('.settings-section-header');
   while (sec.lastChild && sec.lastChild !== header) {
     sec.removeChild(sec.lastChild);
   }
-  _renderThemesSection(sec, container);
+  const content = document.createElement('div');
+  content.className = 'themes-content';
+  content.innerHTML = _renderThemesSectionHTML(container);
+  sec.appendChild(content);
+}
+
+function _renderThemesSection_refresh(sec, container) {
+  const content = sec.querySelector('.themes-content');
+  if (content) {
+    _morph(content, _renderThemesSectionHTML(container));
+  } else {
+    _renderThemesSection(sec, container);
+  }
 }
 
 function _showCreateThemeDialog(sec, container, baseThemeId) {
@@ -1408,11 +1304,53 @@ function _renderProfileForm(sec, existingProfile, onSave, onCancel) {
   return form;
 }
 
+function _profilesSectionHTML(profiles) {
+  const currentDefault = _settings.defaultProfile || 'default-shell';
+  const rowsHtml = profiles
+    .map((p) => {
+      const delHtml = !p.builtin
+        ? `<button class="profile-action-btn danger" title="Delete" data-profile-delete="${_escAttr(p.id)}">
+          <span class="material-symbols-outlined">delete</span>
+        </button>`
+        : '';
+      return `<div class="profile-row" style="cursor:pointer" data-profile-launch="${_escAttr(p.id)}">
+      <span class="material-symbols-outlined profile-icon">${_esc(p.icon || 'terminal')}</span>
+      <div class="profile-info">
+        <span class="profile-name">${_esc(p.name)}</span>
+        <span class="profile-command">${_esc(p.command || '(default shell)')}</span>
+      </div>
+      <div class="profile-actions">
+        <button class="profile-action-btn profile-launch-btn" title="Launch terminal" data-profile-launch-btn="${_escAttr(p.id)}">
+          <span class="material-symbols-outlined">play_arrow</span>
+        </button>
+        <button class="profile-action-btn" title="Edit" data-profile-edit="${_escAttr(p.id)}">
+          <span class="material-symbols-outlined">edit</span>
+        </button>
+        ${delHtml}
+      </div>
+    </div>`;
+    })
+    .join('');
+
+  const optsHtml = profiles
+    .map(
+      (p) => `<option value="${_escAttr(p.id)}" ${p.id === currentDefault ? 'selected' : ''}>${_esc(p.name)}</option>`,
+    )
+    .join('');
+
+  return `
+    <div class="profile-list">${rowsHtml}</div>
+    <div class="profile-default-row">
+      <label class="settings-label" title="Profile used for Ctrl+Shift+T and the &quot;+&quot; button">Default Profile</label>
+      <select class="settings-select" data-setting-key="defaultProfile">${optsHtml}</select>
+    </div>
+    <button class="profile-btn profile-btn-add" data-profile-add="1">
+      <span class="material-symbols-outlined" style="font-size:16px">add</span> Add Profile
+    </button>`;
+}
+
 function _renderProfilesSection(sec, container) {
   const profiles = loadProfiles();
-
-  const list = document.createElement('div');
-  list.className = 'profile-list';
 
   function refresh() {
     sec
@@ -1421,134 +1359,80 @@ function _renderProfilesSection(sec, container) {
     _renderProfilesSection(sec, container);
   }
 
-  for (const profile of profiles) {
-    const row = document.createElement('div');
-    row.className = 'profile-row';
+  const content = document.createElement('div');
+  content.className = 'profiles-content';
+  content.innerHTML = _profilesSectionHTML(profiles);
+  sec.appendChild(content);
 
-    const icon = document.createElement('span');
-    icon.className = 'material-symbols-outlined profile-icon';
-    icon.textContent = profile.icon || 'terminal';
-    row.appendChild(icon);
-
-    const info = document.createElement('div');
-    info.className = 'profile-info';
-    const nameEl = document.createElement('span');
-    nameEl.className = 'profile-name';
-    nameEl.textContent = profile.name;
-    info.appendChild(nameEl);
-    const cmdEl = document.createElement('span');
-    cmdEl.className = 'profile-command';
-    cmdEl.textContent = profile.command || '(default shell)';
-    info.appendChild(cmdEl);
-    row.appendChild(info);
-
-    row.style.cursor = 'pointer';
-    row.addEventListener('click', () => {
-      if (typeof createTerminalFromProfile === 'function') {
-        createTerminalFromProfile(profile);
-      }
-    });
-
-    const actions = document.createElement('div');
-    actions.className = 'profile-actions';
-
-    const launchBtn = document.createElement('button');
-    launchBtn.className = 'profile-action-btn profile-launch-btn';
-    launchBtn.title = 'Launch terminal';
-    launchBtn.innerHTML = '<span class="material-symbols-outlined">play_arrow</span>';
-    launchBtn.addEventListener('click', (e) => {
+  content.addEventListener('click', (e) => {
+    const target = e.target.closest('[data-profile-launch-btn]');
+    if (target) {
       e.stopPropagation();
-      if (typeof createTerminalFromProfile === 'function') {
-        createTerminalFromProfile(profile);
-      }
-    });
-    actions.appendChild(launchBtn);
+      const pid = target.dataset.profileLaunchBtn;
+      const p = profiles.find((pr) => pr.id === pid);
+      if (p && typeof createTerminalFromProfile === 'function') createTerminalFromProfile(p);
+      return;
+    }
 
-    const editBtn = document.createElement('button');
-    editBtn.className = 'profile-action-btn';
-    editBtn.title = 'Edit';
-    editBtn.innerHTML = '<span class="material-symbols-outlined">edit</span>';
-    editBtn.addEventListener('click', (e) => {
+    const editTarget = e.target.closest('[data-profile-edit]');
+    if (editTarget) {
       e.stopPropagation();
-      list.style.display = 'none';
+      const pid = editTarget.dataset.profileEdit;
+      const p = profiles.find((pr) => pr.id === pid);
+      if (!p) return;
+      const list = content.querySelector('.profile-list');
+      if (list) list.style.display = 'none';
       _renderProfileForm(
         sec,
-        profile,
+        p,
         (updated) => {
           const all = loadProfiles();
-          const idx = all.findIndex((p) => p.id === updated.id);
+          const idx = all.findIndex((pr) => pr.id === updated.id);
           if (idx >= 0) all[idx] = updated;
           saveProfiles(all);
           refresh();
         },
         refresh,
       );
-    });
-    actions.appendChild(editBtn);
-
-    if (!profile.builtin) {
-      const delBtn = document.createElement('button');
-      delBtn.className = 'profile-action-btn danger';
-      delBtn.title = 'Delete';
-      delBtn.innerHTML = '<span class="material-symbols-outlined">delete</span>';
-      delBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const all = loadProfiles().filter((p) => p.id !== profile.id);
-        saveProfiles(all);
-        refresh();
-      });
-      actions.appendChild(delBtn);
+      return;
     }
 
-    row.appendChild(actions);
-    list.appendChild(row);
-  }
+    const delTarget = e.target.closest('[data-profile-delete]');
+    if (delTarget) {
+      e.stopPropagation();
+      const pid = delTarget.dataset.profileDelete;
+      const all = loadProfiles().filter((p) => p.id !== pid);
+      saveProfiles(all);
+      refresh();
+      return;
+    }
 
-  sec.appendChild(list);
+    const addTarget = e.target.closest('[data-profile-add]');
+    if (addTarget) {
+      const list = content.querySelector('.profile-list');
+      if (list) list.style.display = 'none';
+      addTarget.style.display = 'none';
+      _renderProfileForm(
+        sec,
+        null,
+        (newProfile) => {
+          const all = loadProfiles();
+          all.push(newProfile);
+          saveProfiles(all);
+          refresh();
+        },
+        refresh,
+      );
+      return;
+    }
 
-  // Default profile selector
-  const defaultRow = document.createElement('div');
-  defaultRow.className = 'profile-default-row';
-  const defaultLabel = document.createElement('label');
-  defaultLabel.className = 'settings-label';
-  defaultLabel.textContent = 'Default Profile';
-  defaultLabel.title = 'Profile used for Ctrl+Shift+T and the "+" button';
-  defaultRow.appendChild(defaultLabel);
-  const defaultSelect = document.createElement('select');
-  defaultSelect.className = 'settings-select';
-  const currentDefault = _settings.defaultProfile || 'default-shell';
-  for (const p of profiles) {
-    const o = document.createElement('option');
-    o.value = p.id;
-    o.textContent = p.name;
-    if (p.id === currentDefault) o.selected = true;
-    defaultSelect.appendChild(o);
-  }
-  defaultSelect.addEventListener('change', () => {
-    field('defaultProfile', defaultSelect.value);
+    const rowTarget = e.target.closest('[data-profile-launch]');
+    if (rowTarget && !e.target.closest('.profile-actions')) {
+      const pid = rowTarget.dataset.profileLaunch;
+      const p = profiles.find((pr) => pr.id === pid);
+      if (p && typeof createTerminalFromProfile === 'function') createTerminalFromProfile(p);
+    }
   });
-  defaultRow.appendChild(defaultSelect);
-  sec.appendChild(defaultRow);
-
-  const addBtn = document.createElement('button');
-  addBtn.className = 'profile-btn profile-btn-add';
-  addBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px">add</span> Add Profile';
-  addBtn.addEventListener('click', () => {
-    list.style.display = 'none';
-    addBtn.style.display = 'none';
-    _renderProfileForm(
-      sec,
-      null,
-      (newProfile) => {
-        const all = loadProfiles();
-        all.push(newProfile);
-        saveProfiles(all);
-        refresh();
-      },
-      refresh,
-    );
-  });
-  sec.appendChild(addBtn);
 }
 
 // ── Workspaces ────────────────────────────────────────────────────────
@@ -1585,7 +1469,7 @@ function renameWorkspace(oldName, newName) {
   window.dispatchEvent(new CustomEvent('workspaces-changed'));
 }
 
-function _renderWorkspacesSection(sec) {
+function _workspacesSectionHTML() {
   const workspaces = loadWorkspaces();
   const names = Object.keys(workspaces).sort((a, b) => {
     const ta = workspaces[a].created || '';
@@ -1593,58 +1477,73 @@ function _renderWorkspacesSection(sec) {
     return tb.localeCompare(ta);
   });
 
-  const list = document.createElement('div');
-  list.className = 'profile-list';
+  let rowsHtml = '';
+  if (names.length === 0) {
+    rowsHtml =
+      '<div style="color:var(--text-muted,#888);font-size:12px;padding:8px 0;">No saved workspaces. Use Ctrl+Shift+W to save the current layout.</div>';
+  } else {
+    rowsHtml = names
+      .map((name) => {
+        const ws = workspaces[name];
+        const termCount = ws.terminals ? ws.terminals.length : 0;
+        const dateStr = ws.created ? new Date(ws.created).toLocaleDateString() : '';
+        const metaText = `${termCount} terminal${termCount !== 1 ? 's' : ''}${dateStr ? ' \u00b7 ' + dateStr : ''}`;
+        return `<div class="profile-row workspace-card" style="cursor:pointer" data-ws-load="${_escAttr(name)}">
+        <span class="material-symbols-outlined profile-icon">workspaces</span>
+        <div class="profile-info">
+          <span class="profile-name" data-ws-name="${_escAttr(name)}">${_esc(name)}</span>
+          <span class="profile-command">${_esc(metaText)}</span>
+        </div>
+        <div class="profile-actions">
+          <button class="profile-action-btn profile-launch-btn" title="Load workspace" data-ws-load-btn="${_escAttr(name)}">
+            <span class="material-symbols-outlined">play_arrow</span>
+          </button>
+          <button class="profile-action-btn" title="Rename" data-ws-rename="${_escAttr(name)}">
+            <span class="material-symbols-outlined">edit</span>
+          </button>
+          <button class="profile-action-btn danger" title="Delete" data-ws-delete="${_escAttr(name)}">
+            <span class="material-symbols-outlined">delete</span>
+          </button>
+        </div>
+      </div>`;
+      })
+      .join('');
+  }
+
+  return `
+    <div class="profile-list">${rowsHtml}</div>
+    <button class="profile-btn profile-btn-add" data-ws-save="1">
+      <span class="material-symbols-outlined" style="font-size:16px">save</span> Save Current Layout
+    </button>`;
+}
+
+function _renderWorkspacesSection(sec) {
+  sec.querySelectorAll('.workspaces-content').forEach((el) => el.remove());
 
   function refresh() {
-    sec.querySelectorAll('.profile-list, .profile-form, .profile-btn-add').forEach((el) => el.remove());
+    sec.querySelectorAll('.workspaces-content').forEach((el) => el.remove());
     _renderWorkspacesSection(sec);
   }
 
-  for (const name of names) {
-    const ws = workspaces[name];
-    const row = document.createElement('div');
-    row.className = 'profile-row workspace-card';
+  const content = document.createElement('div');
+  content.className = 'workspaces-content';
+  content.innerHTML = _workspacesSectionHTML();
+  sec.appendChild(content);
 
-    const icon = document.createElement('span');
-    icon.className = 'material-symbols-outlined profile-icon';
-    icon.textContent = 'workspaces';
-    row.appendChild(icon);
-
-    const info = document.createElement('div');
-    info.className = 'profile-info';
-    const nameEl = document.createElement('span');
-    nameEl.className = 'profile-name';
-    nameEl.textContent = name;
-    info.appendChild(nameEl);
-    const meta = document.createElement('span');
-    meta.className = 'profile-command';
-    const termCount = ws.terminals ? ws.terminals.length : 0;
-    const dateStr = ws.created ? new Date(ws.created).toLocaleDateString() : '';
-    meta.textContent = `${termCount} terminal${termCount !== 1 ? 's' : ''}${dateStr ? ' \u00b7 ' + dateStr : ''}`;
-    info.appendChild(meta);
-    row.appendChild(info);
-
-    const actions = document.createElement('div');
-    actions.className = 'profile-actions';
-
-    const loadBtn = document.createElement('button');
-    loadBtn.className = 'profile-action-btn profile-launch-btn';
-    loadBtn.title = 'Load workspace';
-    loadBtn.innerHTML = '<span class="material-symbols-outlined">play_arrow</span>';
-    loadBtn.addEventListener('click', (e) => {
+  content.addEventListener('click', (e) => {
+    const loadBtn = e.target.closest('[data-ws-load-btn]');
+    if (loadBtn) {
       e.stopPropagation();
-      window.dispatchEvent(new CustomEvent('workspace-load', { detail: { name } }));
-    });
-    actions.appendChild(loadBtn);
+      window.dispatchEvent(new CustomEvent('workspace-load', { detail: { name: loadBtn.dataset.wsLoadBtn } }));
+      return;
+    }
 
-    const renBtn = document.createElement('button');
-    renBtn.className = 'profile-action-btn';
-    renBtn.title = 'Rename';
-    renBtn.innerHTML = '<span class="material-symbols-outlined">edit</span>';
-    renBtn.addEventListener('click', (e) => {
+    const renBtn = e.target.closest('[data-ws-rename]');
+    if (renBtn) {
       e.stopPropagation();
-      // Inline rename
+      const wsName = renBtn.dataset.wsRename;
+      const nameEl = content.querySelector(`[data-ws-name="${CSS.escape(wsName)}"]`);
+      if (!nameEl) return;
       nameEl.contentEditable = 'true';
       nameEl.focus();
       const range = document.createRange();
@@ -1656,11 +1555,11 @@ function _renderWorkspacesSection(sec) {
       function finishRename() {
         nameEl.contentEditable = 'false';
         const newName = nameEl.textContent.trim();
-        if (newName && newName !== name) {
-          renameWorkspace(name, newName);
+        if (newName && newName !== wsName) {
+          renameWorkspace(wsName, newName);
           refresh();
         } else {
-          nameEl.textContent = name;
+          nameEl.textContent = wsName;
         }
       }
       nameEl.addEventListener('blur', finishRename, { once: true });
@@ -1670,48 +1569,32 @@ function _renderWorkspacesSection(sec) {
           nameEl.blur();
         }
         if (ke.key === 'Escape') {
-          nameEl.textContent = name;
+          nameEl.textContent = wsName;
           nameEl.blur();
         }
       });
-    });
-    actions.appendChild(renBtn);
+      return;
+    }
 
-    const delBtn = document.createElement('button');
-    delBtn.className = 'profile-action-btn danger';
-    delBtn.title = 'Delete';
-    delBtn.innerHTML = '<span class="material-symbols-outlined">delete</span>';
-    delBtn.addEventListener('click', (e) => {
+    const delBtn = e.target.closest('[data-ws-delete]');
+    if (delBtn) {
       e.stopPropagation();
-      deleteWorkspace(name);
+      deleteWorkspace(delBtn.dataset.wsDelete);
       refresh();
-    });
-    actions.appendChild(delBtn);
+      return;
+    }
 
-    row.appendChild(actions);
-    row.addEventListener('click', () => {
-      window.dispatchEvent(new CustomEvent('workspace-load', { detail: { name } }));
-    });
-    row.style.cursor = 'pointer';
-    list.appendChild(row);
-  }
+    const saveBtn = e.target.closest('[data-ws-save]');
+    if (saveBtn) {
+      window.dispatchEvent(new CustomEvent('workspace-save-request'));
+      return;
+    }
 
-  if (names.length === 0) {
-    const empty = document.createElement('div');
-    empty.style.cssText = 'color:var(--text-muted,#888);font-size:12px;padding:8px 0;';
-    empty.textContent = 'No saved workspaces. Use Ctrl+Shift+W to save the current layout.';
-    list.appendChild(empty);
-  }
-
-  sec.appendChild(list);
-
-  const saveBtn = document.createElement('button');
-  saveBtn.className = 'profile-btn profile-btn-add';
-  saveBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px">save</span> Save Current Layout';
-  saveBtn.addEventListener('click', () => {
-    window.dispatchEvent(new CustomEvent('workspace-save-request'));
+    const rowTarget = e.target.closest('[data-ws-load]');
+    if (rowTarget && !e.target.closest('.profile-actions')) {
+      window.dispatchEvent(new CustomEvent('workspace-load', { detail: { name: rowTarget.dataset.wsLoad } }));
+    }
   });
-  sec.appendChild(saveBtn);
 }
 
 // ── Public API ────────────────────────────────────────────────────────
@@ -2001,69 +1884,167 @@ function _renderMcpConfigSection(sec) {
   loadTools();
 }
 
+function _sectionHeaderHTML(section) {
+  return `<div class="settings-section-header">
+    <span class="material-symbols-outlined">${_esc(section.icon)}</span>
+    <span class="settings-section-title">${_esc(section.title)}</span>
+  </div>`;
+}
+
 async function initSettings(container) {
   injectStyle();
   await _initConfig();
   const settings = load();
-  container.innerHTML = '';
 
-  const root = document.createElement('div');
-  root.className = 'settings-root';
-
-  const heading = document.createElement('h2');
-  heading.className = 'settings-heading';
-  heading.textContent = 'Settings';
-  root.appendChild(heading);
+  let sectionsHtml = '';
+  const customSections = [];
 
   for (const section of SECTIONS) {
-    const sec = document.createElement('div');
-    sec.className = 'settings-section';
-
-    const header = document.createElement('div');
-    header.className = 'settings-section-header';
-    const icon = document.createElement('span');
-    icon.className = 'material-symbols-outlined';
-    icon.textContent = section.icon;
-    const title = document.createElement('span');
-    title.className = 'settings-section-title';
-    title.textContent = section.title;
-    header.appendChild(icon);
-    header.appendChild(title);
-    sec.appendChild(header);
-
-    if (section.custom && section.title === 'Themes') {
-      _renderThemesSection(sec, container);
-    } else if (section.custom && section.title === 'Profiles') {
-      _renderProfilesSection(sec, container);
-    } else if (section.custom && section.title === 'Templates') {
-      if (typeof renderTemplatesSection === 'function') renderTemplatesSection(sec);
-    } else if (section.custom && section.title === 'Workspaces') {
-      _renderWorkspacesSection(sec);
-    } else if (section.custom && section.title === 'Keyboard Shortcuts') {
-      _renderKeybindingsSection(sec);
-    } else if (section.custom && section.title === 'MCP Configuration') {
-      _renderMcpConfigSection(sec);
+    if (section.custom) {
+      sectionsHtml += `<div class="settings-section" data-section="${_escAttr(section.title)}">${_sectionHeaderHTML(section)}</div>`;
+      customSections.push(section);
     } else if (section.fields) {
-      for (const f of section.fields) {
-        sec.appendChild(renderField(f, settings));
-      }
+      const fieldsHtml = section.fields.map((f) => renderFieldHTML(f, settings)).join('');
+      sectionsHtml += `<div class="settings-section">${_sectionHeaderHTML(section)}${fieldsHtml}</div>`;
     }
-    root.appendChild(sec);
   }
 
-  // Reset button
-  const resetBtn = document.createElement('button');
-  resetBtn.className = 'settings-reset';
-  resetBtn.innerHTML =
-    '<span class="material-symbols-outlined" style="font-size:16px">restart_alt</span> Reset to Defaults';
-  resetBtn.addEventListener('click', () => {
-    _settings = { ...DEFAULTS };
-    save();
-    initSettings(container);
-  });
-  root.appendChild(resetBtn);
+  const html = `<div class="settings-root">
+    <h2 class="settings-heading">Settings</h2>
+    ${sectionsHtml}
+    <button class="settings-reset" data-settings-reset="1">
+      <span class="material-symbols-outlined" style="font-size:16px">restart_alt</span> Reset to Defaults
+    </button>
+  </div>`;
 
-  container.appendChild(root);
+  _morph(container, html);
+
+  for (const section of customSections) {
+    const sec = container.querySelector(`[data-section="${CSS.escape(section.title)}"]`);
+    if (!sec) continue;
+    if (section.title === 'Themes') {
+      _renderThemesSection(sec, container);
+    } else if (section.title === 'Profiles') {
+      _renderProfilesSection(sec, container);
+    } else if (section.title === 'Templates') {
+      if (typeof renderTemplatesSection === 'function') renderTemplatesSection(sec);
+    } else if (section.title === 'Workspaces') {
+      _renderWorkspacesSection(sec);
+    } else if (section.title === 'Keyboard Shortcuts') {
+      _renderKeybindingsSection(sec);
+    } else if (section.title === 'MCP Configuration') {
+      _renderMcpConfigSection(sec);
+    }
+  }
+
+  _attachSettingsDelegation(container);
+}
+
+function _attachSettingsDelegation(container) {
+  const root = container.querySelector('.settings-root');
+  if (!root || root._settingsDelegated) return;
+  root._settingsDelegated = true;
+
+  root.addEventListener('change', (e) => {
+    const el = e.target;
+    const key = el.dataset.settingKey;
+    if (!key) return;
+
+    if (el.type === 'checkbox') {
+      field(key, el.checked);
+      if (el.dataset.followSystem === '1') {
+        window.dispatchEvent(new CustomEvent('follow-system-theme-changed', { detail: el.checked }));
+      }
+    } else if (el.type === 'number') {
+      const f = _findFieldSchema(key);
+      let v = parseFloat(el.value);
+      if (f && f.min != null && v < f.min) v = f.min;
+      if (f && f.max != null && v > f.max) v = f.max;
+      el.value = v;
+      field(key, v);
+    } else if (el.tagName === 'SELECT') {
+      field(key, el.value);
+    } else {
+      field(key, el.value);
+    }
+  });
+
+  root.addEventListener('click', async (e) => {
+    const browseBtn = e.target.closest('[data-browse-for]');
+    if (browseBtn) {
+      const key = browseBtn.dataset.browseFor;
+      const input = root.querySelector(`[data-setting-key="${CSS.escape(key)}"]`);
+      if (input) {
+        const dir = await agentDesk.dialog.openDirectory({ defaultPath: input.value || undefined });
+        if (dir) {
+          input.value = dir;
+          field(key, dir);
+        }
+      }
+      return;
+    }
+
+    const resetBtn = e.target.closest('[data-settings-reset]');
+    if (resetBtn) {
+      _settings = { ...DEFAULTS };
+      save();
+      initSettings(container);
+      return;
+    }
+
+    const themeSelect = e.target.closest('[data-theme-select]');
+    if (themeSelect) {
+      const delBtn = e.target.closest('[data-theme-delete]');
+      if (delBtn) {
+        e.stopPropagation();
+        const themeId = delBtn.dataset.themeDelete;
+        if (typeof deleteCustomTheme === 'function') deleteCustomTheme(themeId);
+        const currentId = _settings.themeId || 'default-dark';
+        const themeType = themeSelect.dataset.themeType;
+        if (currentId === themeId) {
+          field('themeId', themeType === 'light' ? 'default-light' : 'default-dark');
+          field('theme', themeType === 'light' ? 'light' : 'dark');
+        }
+        const prefKey = themeType === 'light' ? 'preferredLightTheme' : 'preferredDarkTheme';
+        const prefVal = _settings[prefKey];
+        if (prefVal === themeId) field(prefKey, themeType === 'light' ? 'default-light' : 'default-dark');
+        initSettings(container);
+        return;
+      }
+      const themeId = themeSelect.dataset.themeSelect;
+      const themeType = themeSelect.dataset.themeType;
+      field('themeId', themeId);
+      field('theme', themeType);
+      const prefKey = themeType === 'light' ? 'preferredLightTheme' : 'preferredDarkTheme';
+      field(prefKey, themeId);
+      const sec = themeSelect.closest('[data-section="Themes"]');
+      if (sec) _renderThemesSection_refresh(sec, container);
+      return;
+    }
+
+    const customizeBtn = e.target.closest('[data-theme-customize]');
+    if (customizeBtn) {
+      const sec = customizeBtn.closest('[data-section="Themes"]');
+      _showThemeEditor(sec, container, customizeBtn.dataset.themeCustomize);
+      return;
+    }
+
+    const createBtn = e.target.closest('[data-theme-create]');
+    if (createBtn) {
+      const sec = createBtn.closest('[data-section="Themes"]');
+      _showCreateThemeDialog(sec, container, createBtn.dataset.themeCreate);
+    }
+  });
+}
+
+function _findFieldSchema(key) {
+  for (const section of SECTIONS) {
+    if (section.fields) {
+      const f = section.fields.find((fld) => fld.key === key);
+      if (f) return f;
+    }
+  }
+  return null;
 }
 
 // eslint-disable-next-line no-unused-vars
