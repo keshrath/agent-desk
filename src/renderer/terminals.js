@@ -497,6 +497,8 @@ export async function reconnectTerminal(liveInfo) {
       /* no buffer */
     }
 
+    _updateEmptyState();
+    registry.updateStatusBar();
     return id;
   } catch (err) {
     console.error('Failed to reconnect terminal:', err);
