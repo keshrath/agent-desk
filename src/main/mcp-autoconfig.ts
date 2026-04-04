@@ -440,7 +440,7 @@ process.stdin.on('end', () => {
   'tasks-cleanup-stop': {
     filename: 'tasks-cleanup-stop.js',
     content: `#!/usr/bin/env node
-const { readFileSync, readdirSync, existsSync, writeFileSync } = require('fs');
+const { readFileSync, existsSync, writeFileSync } = require('fs');
 const { join } = require('path');
 const { homedir } = require('os');
 
@@ -449,19 +449,14 @@ const COUNTER_FILE = join(homedir(), '.claude', 'task-cleanup-counter.json');
 const DB_PATH = process.env.AGENT_TASKS_DB || join(homedir(), '.agent-tasks', 'agent-tasks.db');
 
 function getSessionName() {
-  const claudeDir = join(homedir(), '.claude');
-  const ppid = process.ppid;
-  for (const dir of [join(claudeDir, 'sessions'), claudeDir]) {
-    try {
-      const files = readdirSync(dir).filter(f => f.startsWith('hub-session.') && f.endsWith('.json'));
-      for (const f of files) {
-        try {
-          const info = JSON.parse(readFileSync(join(dir, f), 'utf-8'));
-          if (info.pid === ppid) return info.name;
-        } catch {}
-      }
-    } catch {}
-  }
+  const agentCommDb = join(homedir(), '.agent-comm', 'agent-comm.db');
+  try {
+    const Database = require('better-sqlite3');
+    const db = new Database(agentCommDb, { readonly: true, fileMustExist: true });
+    const row = db.prepare('SELECT name FROM agents WHERE status = \\'online\\' ORDER BY last_heartbeat DESC LIMIT 1').get();
+    db.close();
+    if (row && row.name) return row.name;
+  } catch {}
   return null;
 }
 
@@ -514,23 +509,24 @@ process.stdin.on('end', () => {
   'tasks-cleanup-start': {
     filename: 'tasks-cleanup-start.js',
     content: `#!/usr/bin/env node
-const { readFileSync, readdirSync, existsSync } = require('fs');
+const { existsSync } = require('fs');
 const { join } = require('path');
 const { homedir } = require('os');
 
 const DB_PATH = process.env.AGENT_TASKS_DB || join(homedir(), '.agent-tasks', 'agent-tasks.db');
 
 function getActiveSessions() {
-  const claudeDir = join(homedir(), '.claude');
+  const agentCommDb = join(homedir(), '.agent-comm', 'agent-comm.db');
   const active = new Set();
-  for (const dir of [join(claudeDir, 'sessions'), claudeDir]) {
-    try {
-      const files = readdirSync(dir).filter(f => f.startsWith('hub-session.') && f.endsWith('.json'));
-      for (const f of files) {
-        try { const info = JSON.parse(readFileSync(join(dir, f), 'utf-8')); if (info.name) active.add(info.name); } catch {}
-      }
-    } catch {}
-  }
+  try {
+    const Database = require('better-sqlite3');
+    const db = new Database(agentCommDb, { readonly: true, fileMustExist: true });
+    const rows = db.prepare('SELECT name FROM agents WHERE status = \\'online\\'').all();
+    db.close();
+    for (const row of rows) {
+      if (row.name) active.add(row.name);
+    }
+  } catch {}
   return active;
 }
 

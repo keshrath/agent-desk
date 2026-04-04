@@ -86,9 +86,14 @@ function cleanupOldLogs(): void {
 export function hasRecentCrashLogs(): { hasCrash: boolean; dir: string } {
   ensureCrashDir();
 
+  const RECENT_THRESHOLD_MS = 5 * 60 * 1000;
+  const now = Date.now();
+
   try {
-    const files = readdirSync(CRASH_DIR).filter((f) => f.startsWith('crash-') && f.endsWith('.log'));
-    return { hasCrash: files.length > 0, dir: CRASH_DIR };
+    const hasRecent = readdirSync(CRASH_DIR)
+      .filter((f) => f.startsWith('crash-') && f.endsWith('.log'))
+      .some((f) => now - statSync(join(CRASH_DIR, f)).mtimeMs < RECENT_THRESHOLD_MS);
+    return { hasCrash: hasRecent, dir: CRASH_DIR };
   } catch {
     return { hasCrash: false, dir: CRASH_DIR };
   }

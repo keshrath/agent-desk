@@ -144,6 +144,7 @@ let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let saveInterval: ReturnType<typeof setInterval> | null = null;
 let trayTooltipInterval: ReturnType<typeof setInterval> | null = null;
+let isQuitting = false;
 let updateCheckInterval: ReturnType<typeof setInterval> | null = null;
 let configWatcher: FSWatcher | null = null;
 let loadedPlugins: LoadedPlugin[] = [];
@@ -410,7 +411,7 @@ function createWindow(): BrowserWindow {
   let trayNotified = false;
   win.on('close', (e) => {
     saveSession();
-    if (tray) {
+    if (tray && !isQuitting) {
       e.preventDefault();
       win.hide();
       if (!trayNotified && Notification.isSupported()) {
@@ -1081,7 +1082,8 @@ function getHistory(limit?: number, search?: string): HistoryEntry[] {
 
 function setupAutoUpdater(): void {
   try {
-    import('electron-updater').then(({ autoUpdater }) => {
+    import('electron-updater').then((mod) => {
+      const autoUpdater = mod?.autoUpdater;
       if (!autoUpdater?.setFeedURL) return;
       autoUpdater.setFeedURL({
         provider: 'github',
@@ -1218,6 +1220,7 @@ app.on('window-all-closed', () => {
 });
 
 app.on('before-quit', () => {
+  isQuitting = true;
   saveSession();
   closeNativeContexts();
   stopMonitoring();
