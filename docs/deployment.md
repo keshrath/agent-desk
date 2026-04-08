@@ -46,20 +46,23 @@ First start prints:
 
 ```
 agent-desk server listening on http://127.0.0.1:8787
-Open: http://127.0.0.1:8787/#t=<token>
+Open: http://127.0.0.1:8787/?t=<token>
 ```
 
 The token is persisted to `~/.agent-desk/server-token`. Delete that file to rotate.
 
-### Flags
+### Flags / env vars
 
-| Flag          | Default     | Purpose                                                         |
-| ------------- | ----------- | --------------------------------------------------------------- |
-| `--bind`      | `127.0.0.1` | Bind address. Non-loopback requires a token file.               |
-| `--port`      | `8787`      | HTTP port.                                                      |
-| `--readonly`  | off         | Refuse mutating channels (see threat model).                    |
-| `--insecure`  | off         | Required to bind non-loopback without a reverse proxy / TLS.    |
-| `--origin`    | —           | Public origin (e.g. `https://desk.example.com`) for CORS / WS.  |
+| Flag / env var                  | Default     | Purpose                                                          |
+| ------------------------------- | ----------- | ---------------------------------------------------------------- |
+| `AGENT_DESK_BIND` / `--bind`    | `127.0.0.1` | Bind address. Non-loopback requires a token file.                |
+| `AGENT_DESK_PORT` / `--port`    | `3420`      | HTTP port.                                                       |
+| `AGENT_DESK_TOKEN`              | random hex  | Auth token. Override to make it stable across restarts.          |
+| `AGENT_DESK_SERVER_READONLY=1` / `--readonly` | off | Refuse mutating channels (see threat model).         |
+| `AGENT_DESK_RATE_LIMIT_RPS`     | `50`        | Per-connection token-bucket refill rate (msgs / second).         |
+| `AGENT_DESK_RATE_LIMIT_BURST`   | `100`       | Per-connection token-bucket capacity (max burst size).           |
+| `AGENT_DESK_TERMINAL_CAP`       | `64`        | Hard cap on concurrent ptys per process. `terminal:create` 429s. |
+| `AGENT_DESK_VERSION`            | `0.0.0-server` | Version string surfaced via `/healthz` and crash logs.        |
 
 ### systemd unit
 
@@ -145,13 +148,57 @@ sudo certbot certonly --nginx -d desk.example.com
 
 Then add a standard `proxy_pass http://127.0.0.1:8787` location block with `Upgrade` / `Connection` headers set for the WS upgrade. Caddy is strongly recommended — it gets TLS right by default.
 
+### Native module ABI
+
+`@agent-desk/server` depends transitively on `better-sqlite3` (via the
+`agent-comm`, `agent-tasks`, `agent-knowledge`, `agent-discover` SDKs) and
+`node-pty`. Both are native modules and need to be built against the
+**system Node** ABI when running the server (not against the Electron ABI).
+
+After `npm install`:
+
+```bash
+npm run rebuild:server   # rebuilds better-sqlite3 + node-pty for system Node
+```
+
+If you also build the Electron desktop on the same machine, run
+`npm run rebuild:desktop` before launching it (`electron-rebuild` builds the
+modules against Electron's bundled Node version).
+
+If the server logs `[agent-desk] comm context failed: NODE_MODULE_VERSION
+mismatch`, the rebuild step was skipped. The server still boots and serves
+the UI, but the comm/tasks/knowledge/discover bridges return empty results.
+
+### Threat model
+
+- **Default-bind `127.0.0.1`** — only the local user can hit the server. Safe
+  for single-user dev.
+- **Non-loopback bind** — anyone who reaches the port can use the API if they
+  have the token. Always front with TLS (Caddy) and rotate the token if it
+  leaks.
+- **Token in URL** — the token rides on the WebSocket handshake's query string
+  and on every HTTP request's `?t=` param. It's logged in browser history and
+  reverse-proxy access logs by default. Configure Caddy / nginx to scrub the
+  `t` query param from the access log if you care.
+- **Terminal exposure** — every authenticated client can spawn shell processes
+  with the server user's privileges. **Never run the server as root**. The
+  systemd unit above creates a dedicated `agent-desk` user.
+- **Rate limiting** — the per-connection token bucket and terminal cap protect
+  against runaway clients but NOT against a malicious authenticated user. If
+  you can't trust your token holders, disable mutating channels with
+  `--readonly` and use the desktop app for write workflows.
+- **CORS / WS origin** — the WS upgrade rejects connections without a valid
+  token but does NOT check `Origin`. If you front with Caddy, the reverse
+  proxy is your CSRF boundary; the server itself trusts every authenticated
+  WS upgrade regardless of origin.
+
 ## PWA
 
 The PWA is served by the web server at the same origin. No separate deployment.
 
 ### Install on a phone
 
-1. Visit `https://desk.example.com/#t=<token>` in mobile Chrome or Safari.
+1. Visit `https://desk.example.com/?t=<token>` in mobile Chrome or Safari.
 2. Use the browser menu "Add to Home Screen" (iOS) or "Install app" (Android).
 3. Launch from the home screen — the token is stored in `localStorage`, so subsequent launches skip the token prompt.
 

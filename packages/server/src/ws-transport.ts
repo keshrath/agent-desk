@@ -1,6 +1,9 @@
 // JSON-RPC over WebSocket. Each client gets its own router instance so
 // terminal subscriptions don't leak across browsers. The core terminal
 // store is a singleton — terminals are addressable by id across clients.
+//
+// Per-connection rate limiting (token bucket) and a hard terminal cap
+// protect against runaway clients exhausting pty handles.
 
 import type { Server as HttpServer, IncomingMessage } from 'http';
 import { WebSocketServer, WebSocket } from 'ws';
@@ -14,6 +17,10 @@ import {
   type TerminalManager,
 } from '@agent-desk/core';
 import { checkRequestToken } from './auth.js';
+
+const RATE_LIMIT_RPS = parseInt(process.env.AGENT_DESK_RATE_LIMIT_RPS || '50', 10);
+const RATE_LIMIT_BURST = parseInt(process.env.AGENT_DESK_RATE_LIMIT_BURST || '100', 10);
+const TERMINAL_CAP = parseInt(process.env.AGENT_DESK_TERMINAL_CAP || '64', 10);
 
 interface RpcRequest {
   id?: number;
@@ -63,6 +70,19 @@ export function attachWsTransport(opts: WsTransportOptions): {
     clients.add(ws);
     const subscribed = new Set<string>();
 
+    // Token bucket for per-connection rate limiting
+    let tokens = RATE_LIMIT_BURST;
+    let lastRefill = Date.now();
+    function takeToken(): boolean {
+      const now = Date.now();
+      const elapsed = (now - lastRefill) / 1000;
+      tokens = Math.min(RATE_LIMIT_BURST, tokens + elapsed * RATE_LIMIT_RPS);
+      lastRefill = now;
+      if (tokens < 1) return false;
+      tokens -= 1;
+      return true;
+    }
+
     const sendPush = (channel: string, ...args: unknown[]) => {
       const msg: RpcPush = { push: channel, args };
       try {
@@ -95,10 +115,24 @@ export function attachWsTransport(opts: WsTransportOptions): {
     });
 
     ws.on('message', async (buf) => {
+      if (!takeToken()) {
+        try {
+          ws.send(JSON.stringify({ id: 0, error: 'rate limit exceeded' }));
+        } catch {
+          /* noop */
+        }
+        return;
+      }
       let msg: RpcRequest;
       try {
         msg = JSON.parse(buf.toString());
       } catch {
+        return;
+      }
+      if (msg.ch === 'terminal:create' && opts.terminals.list().length >= TERMINAL_CAP) {
+        if (msg.id != null) {
+          ws.send(JSON.stringify({ id: msg.id, error: `terminal cap reached (${TERMINAL_CAP})` }));
+        }
         return;
       }
       if (msg.id != null) {
