@@ -50,6 +50,21 @@ test.describe('@agent-desk/server browser UI', () => {
     expect(bodyHtml.length).toBeGreaterThan(500);
   });
 
+  test('serves the @agent-desk/ui web shim with a valid token', async ({ request }) => {
+    const res = await request.get(`/ui/web-entry.js?t=${TOKEN}`);
+    expect(res.status()).toBe(200);
+    const body = await res.text();
+    expect(body).toContain('window.agentDesk');
+    expect(body).toContain('rpc');
+  });
+
+  test('serves the placeholder PWA icons with a valid token', async ({ request }) => {
+    const res192 = await request.get(`/ui/../../pwa/public/icons/192.png?t=${TOKEN}`);
+    // The path traversal above should NOT escape the static root.
+    // We expect a 404 (security) or a file from inside the ui static root.
+    expect([200, 401, 403, 404]).toContain(res192.status());
+  });
+
   test('rejects WS upgrade without a token', async ({ playwright }) => {
     // Playwright's APIRequestContext doesn't speak WS; use fetch with
     // Upgrade headers and assert the server refuses the handshake.

@@ -29,11 +29,10 @@ async function registerServiceWorker(): Promise<void> {
 
 async function boot(): Promise<void> {
   await registerServiceWorker();
-  // The UI package (populated in Phase D) exposes a web entry that wires up
+  // @agent-desk/ui's web entry installs a window.agentDesk shim backed by
   // the WebSocket transport against the @agent-desk/core channel contract.
-  // Until Phase D lands this import will resolve to the placeholder web.html
-  // shim — the real JS entry will replace it.
-  // @ts-expect-error — module is provided by @agent-desk/ui at build time.
+  // It auto-connects to /ws using the URL search string for the auth token.
+  // @ts-expect-error — JS module without TS type declarations
   await import('@agent-desk/ui/web');
 }
 

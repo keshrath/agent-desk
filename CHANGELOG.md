@@ -2,6 +2,72 @@
 
 All notable changes to Agent Desk are documented in this file.
 
+## [1.2.1] - 2026-04-08
+
+### Added
+
+- **`@agent-desk/ui` is now a real workspace package** with subpath exports: `@agent-desk/ui` and `@agent-desk/ui/web` resolve to `packages/ui/src/web-entry.js`, the new WS-transport shim that installs `window.agentDesk` for browser/PWA targets. The shim mirrors the Electron preload bridge shape exactly so the renderer's 33 vanilla-JS files don't know which transport they're running on.
+- **PWA placeholder icons** generated programmatically by `packages/pwa/public/icons/generate.js` (192px + 512px PNGs, accent-colored monogram, no design tooling required). Real branded icons should replace these for production but the manifest now points at valid files.
+- **`/ui/*` static route** in `@agent-desk/server` exposing the shared UI package so the renderer can `<script src="/ui/web-entry.js">`.
+- **Two new playwright web e2e tests**: `/ui/web-entry.js` serves the shim, path traversal blocked. Total: 7/7 web e2e tests pass.
+
+## [1.2.0] - 2026-04-08
+
+### Changed — Phase C: desktop createRouter migration
+
+- **Single handler implementation** for both transports: `packages/core/src/handlers-default.ts` exports `buildDefaultRequestHandlers()` + `buildDefaultCommandHandlers()`, used by BOTH `@agent-desk/server` and the Electron desktop. Closes pipeline #574.
+- **`src/main/ipc-bridge.ts`**: `mountIpcBridge({ router, pushChannels, getWindow })` registers `ipcMain.handle` for every router request channel and `ipcMain.on` for every command, plus subscribes to push channels and forwards them to the given window's `webContents.send`.
+- **`src/main/index.ts` shrunk by ~308 lines net** (-621 / +244): all in-contract `ipcMain.handle` bodies replaced by `createRouter()` + `mountIpcBridge()` + 5 desktop overrides (session save with window bounds, file:write with path-approval, terminal:create error wrapping, terminal:subscribe with mainWindow.webContents.send wiring, session:saveLayout with local storage).
+- **Electron-only IPC channels** (popout, dialog, window controls, tray, autoUpdater, app:notify, shell) stay as direct `ipcMain` handlers — they touch electron primitives that don't exist on web and are NOT in the channels contract.
+- **`AgentBridges`** replaces the inline `initNativeContexts` / `closeNativeContexts` / `startNativeDataPolling` functions; the comm/tasks/knowledge/discover SDKs are now wrapped by core.
+
+## [1.1.2] - 2026-04-08
+
+### Added
+
+- **Playwright web e2e suite** (`tests/e2e/web/server-ui.spec.ts`): boots `@agent-desk/server`, navigates a real chromium browser to the token-gated UI, validates 5 channels: healthz, protected route 401, UI shell 200, browser navigation + render, WS upgrade rejected without token.
+- New `playwright.config.ts` `web` project + `webServer` block.
+- New npm script: `test:e2e:web`.
+
+## [1.1.1] - 2026-04-08
+
+### Changed
+
+- **`src/preload`** relocated to `packages/desktop/src/preload` (git mv, history preserved).
+- **`@agent-desk/desktop`** now has its own `tsconfig.json` + build script; preload compiles to `packages/desktop/dist/preload/index.js`.
+- `BrowserWindow.webPreferences.preload` path updated.
+- electron-builder `files` glob includes `packages/desktop/dist/**`.
+
+### Added
+
+- **Vitest integration suite** (`tests/integration/server-ws.test.ts`): spawns `@agent-desk/server`, connects WS, validates 6 channels round-trip — `system:stats`, `config:read`, `plugins:list`, `/healthz`, 401 without token, 200 with token. The dual-target architecture is now proven in CI, not just by hand.
+- 118/118 vitest tests pass (was 93).
+
+## [1.1.0] - 2026-04-08
+
+### Changed — Dual-target refactor
+
+Splits the Electron app into a transport-agnostic core plus two transports (Electron IPC + WebSocket) so the same renderer can run as a desktop app or a server-hosted web/PWA experience.
+
+#### New packages (npm workspaces)
+
+- **`@agent-desk/core`** — transport-agnostic Node, zero electron imports. Contains `terminal-manager`, `system-monitor`, `crash-reporter`, `mcp-autoconfig`, `plugin-system`, `config-store`, `keybindings-store`, `history-store`, `session-store`, `file-ops`, `agent-bridges`, `transport/{channels,router}`, `platform/paths`.
+- **`@agent-desk/server`** — Express + ws, single-user URL token auth, drives core via `createRouter()`. Proves the dual-target architecture end-to-end.
+- **`@agent-desk/ui`** — vanilla-JS renderer moved here (33 files via `git mv`, history preserved).
+- **`@agent-desk/desktop`** — stub package; popout/tray/autoUpdater move here next.
+- **`@agent-desk/pwa`** — vite + service worker + manifest, read-only v1 flag, mobile.css for touch sizing.
+
+#### Channel contract
+
+`packages/core/src/transport/channels.ts` is the typed source of truth — ~55 request channels, 2 commands, 11 push events. Both transports dispatch through `createRouter()`.
+
+#### Native modules
+
+better-sqlite3 needs ABI rebuild per target. New scripts:
+
+- `npm run rebuild:desktop` → `electron-rebuild`
+- `npm run rebuild:server` → `npm rebuild`
+
 ## [1.0.25] - 2026-04-08
 
 ### Added

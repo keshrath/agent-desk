@@ -80,9 +80,12 @@ app.get('/healthz', (_req, res) => {
   res.json({ ok: true, version: process.env.AGENT_DESK_VERSION || '0.0.0-server' });
 });
 
-// Static UI from packages/ui/src/renderer
+// Static UI from packages/ui/src/renderer + the WS-transport web shim
+// at /ui/web-entry.js so the renderer's <script> tags can pull it in.
 const uiRoot = join(__dirname, '..', '..', 'ui', 'src', 'renderer');
+const uiSharedRoot = join(__dirname, '..', '..', 'ui', 'src');
 app.use(express.static(uiRoot));
+app.use('/ui', express.static(uiSharedRoot));
 
 // Plugin assets — replaces protocol.handle('plugin', …)
 app.get('/plugins/:id/*', makePluginAssetHandler(plugins));

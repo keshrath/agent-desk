@@ -2,6 +2,15 @@
   "name": "@agent-desk/ui",
   "version": "0.0.0",
   "private": true,
-  "description": "Renderer (vanilla JS + xterm.js + dockview-core) for agent-desk. Zero Electron deps; consumed by both @agent-desk/desktop and @agent-desk/server.",
-  "type": "module"
+  "description": "Renderer (vanilla JS + xterm.js + dockview-core) for agent-desk. Zero Electron deps; consumed by @agent-desk/desktop, @agent-desk/server, and @agent-desk/pwa.",
+  "type": "module",
+  "exports": {
+    ".": "./src/web-entry.js",
+    "./web": "./src/web-entry.js",
+    "./web.html": "./src/web.html",
+    "./renderer/*": "./src/renderer/*"
+  },
+  "files": [
+    "src/**/*"
+  ]
 }
