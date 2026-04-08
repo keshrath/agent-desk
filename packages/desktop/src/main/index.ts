@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, Tray, Menu, nativeImage, shell, Notification } from 'electron';
+import { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, Notification } from 'electron';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { createRequire } from 'module';
@@ -23,6 +23,7 @@ import {
 } from '@agent-desk/core';
 import { mountIpcBridge } from './ipc-bridge.js';
 import { buildDesktopRequestHandlers, buildDesktopCommandHandlers } from './desktop-handlers.js';
+import { mountElectronHandlers } from './electron-handlers.js';
 import { discoverPlugins, registerPluginProtocol, setupPluginIPC, type LoadedPlugin } from './plugin-electron.js';
 
 setAppVersion(app.getVersion());
@@ -221,14 +222,17 @@ const approvedWritePaths = new Set<string>();
 
 let unmountIpcBridge: (() => void) | null = null;
 
-function setupIPC(): void {
-  // ---------------------------------------------------------------------------
-  // Router-based handlers — every channel in the @agent-desk/core contract
-  // is wired through createRouter() + mountIpcBridge. This is the same
-  // dispatch path the @agent-desk/server WS transport uses, so the desktop
-  // and the web target share their handler bodies.
-  // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// IPC setup — split into focused functions:
+//   buildContractRouter()  — assembles handlers for in-contract channels
+//   wireCorePushBus()      — feeds core stores into the router's emit bus
+//   mountElectronHandlers — direct ipcMain for electron-only channels
+//                          (defined in ./electron-handlers.ts)
+// ---------------------------------------------------------------------------
 
+let unmountElectronHandlers: (() => void) | null = null;
+
+function buildContractRouter() {
   const handlerDeps = {
     terminals: terminalManager,
     history: historyStore,
@@ -242,30 +246,23 @@ function setupIPC(): void {
     approvedWritePaths,
   };
 
-  const router = createRouter({
+  return createRouter({
     requestHandlers: buildDesktopRequestHandlers(handlerDeps),
     commandHandlers: buildDesktopCommandHandlers(handlerDeps),
   });
+}
 
-  // Push channels that core emits and we want forwarded to the renderer.
-  // Renderer-side listeners come from the preload script.
-  const pushChannels: PushChannel[] = [
-    'comm:update',
-    'tasks:update',
-    'knowledge:update',
-    'discover:update',
-    'config:changed',
-    'history:new',
-    'system:stats-update',
-  ];
+const PUSH_CHANNELS: PushChannel[] = [
+  'comm:update',
+  'tasks:update',
+  'knowledge:update',
+  'discover:update',
+  'config:changed',
+  'history:new',
+  'system:stats-update',
+];
 
-  unmountIpcBridge = mountIpcBridge({
-    router,
-    pushChannels,
-    getWindow: () => mainWindow,
-  });
-
-  // Wire core push sources into the router's emit bus.
+function wireCorePushBus(router: ReturnType<typeof createRouter>): void {
   bridges.startPolling((channel, payload) => {
     router.emit(channel as PushChannel, payload as never);
   });
@@ -276,140 +273,25 @@ function setupIPC(): void {
   });
   startMonitoring();
   onStatsUpdate((stats) => router.emit('system:stats-update', stats));
+}
 
-  // ---------------------------------------------------------------------------
-  // Electron-only IPC channels — NOT in the @agent-desk/core contract.
-  // These stay as direct ipcMain handlers because they touch BrowserWindow,
-  // dialog, shell, Notification, app, autoUpdater — none of which exist on
-  // the web target.
-  // ---------------------------------------------------------------------------
-
-  // Window controls
-  ipcMain.on('window:minimize', () => mainWindow?.minimize());
-  ipcMain.on('window:maximize', () => {
-    if (mainWindow?.isMaximized()) {
-      mainWindow.unmaximize();
-    } else {
-      mainWindow?.maximize();
-    }
+function setupIPC(): void {
+  const router = buildContractRouter();
+  unmountIpcBridge = mountIpcBridge({
+    router,
+    pushChannels: PUSH_CHANNELS,
+    getWindow: () => mainWindow,
   });
-  ipcMain.on('window:close', () => mainWindow?.close());
+  wireCorePushBus(router);
 
-  // App settings
-  ipcMain.on('app:setLoginItem', (_e, enabled: boolean) => {
-    app.setLoginItemSettings({ openAtLogin: enabled });
+  unmountElectronHandlers = mountElectronHandlers({
+    getMainWindow: () => mainWindow,
+    approvedWritePaths,
+    terminals: terminalManager,
+    resourcesDir: join(__dirname, '../../../../resources'),
+    rendererDir: join(__dirname, '../../../../packages/ui/src/renderer'),
+    preloadPath: join(__dirname, '../preload/index.js'),
   });
-
-  // Window flash (for bell / notification)
-  ipcMain.on('window:flashFrame', () => {
-    mainWindow?.flashFrame(true);
-  });
-
-  // Desktop notification
-  ipcMain.on('app:notify', (_e, title: string, body: string) => {
-    if (Notification.isSupported()) {
-      new Notification({ title, body }).show();
-    }
-  });
-
-  // Open directory dialog
-  ipcMain.handle('dialog:openDirectory', async (_e, options: { defaultPath?: string }) => {
-    const win = mainWindow || BrowserWindow.getFocusedWindow();
-    if (win) win.setAlwaysOnTop(false);
-    const result = await dialog.showOpenDialog({
-      properties: ['openDirectory'],
-      defaultPath: options?.defaultPath || undefined,
-      title: 'Select Directory',
-    });
-    if (result.canceled || !result.filePaths.length) return null;
-    return result.filePaths[0];
-  });
-
-  ipcMain.handle(
-    'dialog:saveFile',
-    async (_e, options: { defaultPath?: string; filters?: Array<{ name: string; extensions: string[] }> }) => {
-      const result = await dialog.showSaveDialog(mainWindow!, {
-        defaultPath: options.defaultPath,
-        filters: options.filters || [
-          { name: 'Text Files', extensions: ['txt', 'log'] },
-          { name: 'All Files', extensions: ['*'] },
-        ],
-      });
-      if (result.canceled || !result.filePath) return null;
-      approvedWritePaths.add(result.filePath);
-      return result.filePath;
-    },
-  );
-
-  // Pop-out terminal into its own window
-  ipcMain.handle('terminal:popout', (_e, opts: { terminalId: string; title: string; cols?: number; rows?: number }) => {
-    const popWin = new BrowserWindow({
-      width: 800,
-      height: 500,
-      title: opts.title || 'Terminal',
-      icon: join(__dirname, '../../../../resources/icon.png'),
-      backgroundColor: '#1a1d23',
-      autoHideMenuBar: true,
-      webPreferences: {
-        preload: join(__dirname, '../preload/index.js'),
-        contextIsolation: true,
-        nodeIntegration: false,
-        sandbox: false,
-      },
-    });
-    const termId = encodeURIComponent(opts.terminalId);
-    const title = encodeURIComponent(opts.title || 'Terminal');
-    popWin.loadFile(join(__dirname, '../../../../packages/ui/src/renderer/popout.html'), {
-      query: { terminalId: termId, title: title },
-    });
-    terminalManager.subscribe(opts.terminalId, {
-      send: (data: string) => {
-        try {
-          popWin.webContents.send('terminal:data', opts.terminalId, data);
-        } catch {
-          /* window closed */
-        }
-      },
-      sendExit: (exitCode: number) => {
-        try {
-          popWin.webContents.send('terminal:exit', opts.terminalId, exitCode);
-        } catch {
-          /* window closed */
-        }
-      },
-    });
-    return { windowId: popWin.id };
-  });
-
-  // Open path in system file manager
-  ipcMain.on('shell:openPath', (_e, dirPath: string) => {
-    try {
-      if (existsSync(dirPath) && statSync(dirPath).isDirectory()) {
-        shell.openPath(dirPath);
-      }
-    } catch {
-      console.warn(`[agent-desk] Failed to open path: ${dirPath}`);
-    }
-  });
-
-  // External links — only allow http/https URLs
-  ipcMain.on('shell:openExternal', (_e, url: string) => {
-    try {
-      const parsed = new URL(url);
-      if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
-        shell.openExternal(url);
-      } else {
-        console.warn(`[agent-desk] Blocked openExternal for non-http URL: ${url}`);
-      }
-    } catch {
-      console.warn(`[agent-desk] Blocked openExternal for invalid URL: ${url}`);
-    }
-  });
-
-  // ---------------------------------------------------------------------------
-  // (history, comm, tasks, knowledge, discover, system, mcp, crash handlers
-  //  removed — all handled via createRouter() / mountIpcBridge above.)
-  // ---------------------------------------------------------------------------
 }
 
 // History persistence is now provided by @agent-desk/core HistoryStore
@@ -555,6 +437,8 @@ app.on('before-quit', () => {
   bridges.close();
   unmountIpcBridge?.();
   unmountIpcBridge = null;
+  unmountElectronHandlers?.();
+  unmountElectronHandlers = null;
   stopMonitoring();
   if (saveInterval) {
     clearInterval(saveInterval);
