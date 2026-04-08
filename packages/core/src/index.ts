@@ -81,4 +81,9 @@ export type {
   PushChannel,
   PushChannelMap,
   PushArgs,
+  CommSnapshot,
+  TasksSnapshot,
+  DiscoverSnapshot,
+  KnowledgeReadResult,
+  KnowledgeSessionListItem,
 } from './transport/channels.js';

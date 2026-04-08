@@ -19,9 +19,37 @@ import type { SystemStats } from '../system-monitor.js';
 import type { PluginInfo } from '../plugin-system.js';
 import type { ConfigResult } from '../mcp-autoconfig.js';
 
+import type { Agent, Channel, Message, StateEntry, FeedEvent } from 'agent-comm/dist/types.js';
+import type { Task, SearchResult as TaskSearchResult } from 'agent-tasks/dist/types.js';
+import type { ServerEntry, MarketplaceResult } from 'agent-discover/dist/types.js';
+import type { KnowledgeEntry, KnowledgeSearchResult, SessionMeta } from 'agent-knowledge/dist/lib.js';
+
+export interface KnowledgeReadResult {
+  entry: KnowledgeEntry;
+  content: string;
+}
+
+export type KnowledgeSessionListItem = { project: string; sessionId: string } & SessionMeta;
+
 type TerminalListItem = ReturnType<TerminalManager['list']>[number];
 type DetectedTool = { name: string; label: string; path: string; configured: boolean };
 type PluginConfig = { baseUrl: string; wsUrl: string } | null;
+
+export interface CommSnapshot {
+  agents: Agent[];
+  channels: Channel[];
+  messages: Message[];
+  state: StateEntry[];
+  feed: FeedEvent[];
+}
+
+export interface TasksSnapshot {
+  tasks: Task[];
+}
+
+export interface DiscoverSnapshot {
+  servers: ServerEntry[];
+}
 
 // ---------------------------------------------------------------------------
 // Request / response
@@ -76,33 +104,33 @@ export interface RequestChannelMap {
   'history:clear': { args: []; result: boolean };
 
   // agent-comm bridge
-  'comm:state': { args: []; result: unknown };
-  'comm:agents': { args: []; result: unknown[] };
-  'comm:messages': { args: [limit?: number]; result: unknown[] };
-  'comm:channels': { args: []; result: unknown[] };
-  'comm:state-entries': { args: []; result: unknown[] };
-  'comm:feed': { args: [limit?: number]; result: unknown[] };
+  'comm:state': { args: []; result: CommSnapshot | null };
+  'comm:agents': { args: []; result: Agent[] };
+  'comm:messages': { args: [limit?: number]; result: Message[] };
+  'comm:channels': { args: []; result: Channel[] };
+  'comm:state-entries': { args: []; result: StateEntry[] };
+  'comm:feed': { args: [limit?: number]; result: FeedEvent[] };
 
   // agent-tasks bridge
-  'tasks:state': { args: []; result: unknown };
-  'tasks:list': { args: [filter?: Record<string, unknown>]; result: unknown[] };
-  'tasks:get': { args: [id: number]; result: unknown };
-  'tasks:search': { args: [query: string]; result: unknown[] };
+  'tasks:state': { args: []; result: TasksSnapshot | null };
+  'tasks:list': { args: [filter?: Record<string, unknown>]; result: Task[] };
+  'tasks:get': { args: [id: number]; result: Task | null };
+  'tasks:search': { args: [query: string]; result: TaskSearchResult[] };
 
   // agent-knowledge bridge
-  'knowledge:entries': { args: [category?: string]; result: unknown[] };
-  'knowledge:read': { args: [category: string, name: string]; result: unknown };
-  'knowledge:search': { args: [query: string]; result: unknown[] };
-  'knowledge:sessions': { args: []; result: unknown[] };
+  'knowledge:entries': { args: [category?: string]; result: KnowledgeEntry[] };
+  'knowledge:read': { args: [category: string, name: string]; result: KnowledgeReadResult | null };
+  'knowledge:search': { args: [query: string]; result: KnowledgeSearchResult[] };
+  'knowledge:sessions': { args: []; result: KnowledgeSessionListItem[] };
   'knowledge:session': { args: [sessionId: string, project?: string]; result: unknown };
 
   // agent-discover bridge
-  'discover:state': { args: []; result: unknown };
-  'discover:servers': { args: []; result: unknown[] };
-  'discover:server': { args: [id: number]; result: unknown };
-  'discover:browse': { args: [query?: string]; result: unknown };
-  'discover:activate': { args: [id: number]; result: unknown };
-  'discover:deactivate': { args: [id: number]; result: unknown };
+  'discover:state': { args: []; result: DiscoverSnapshot | null };
+  'discover:servers': { args: []; result: ServerEntry[] };
+  'discover:server': { args: [id: number]; result: ServerEntry | null };
+  'discover:browse': { args: [query?: string]; result: MarketplaceResult };
+  'discover:activate': { args: [id: number]; result: boolean };
+  'discover:deactivate': { args: [id: number]; result: boolean };
   'discover:delete': { args: [id: number]; result: boolean };
   'discover:secrets': { args: [serverId: number]; result: unknown };
   'discover:metrics': { args: [serverId?: number]; result: unknown };

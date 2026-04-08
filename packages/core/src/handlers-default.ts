@@ -153,9 +153,10 @@ export function buildDefaultRequestHandlers(deps: BuildHandlersDeps): RequestHan
     'discover:server': (id) => bridges.discoverCtx?.registry.getById(id) ?? null,
     'discover:browse': async (query) => {
       try {
-        return (await bridges.discoverCtx?.marketplace.browse(query ?? '')) ?? { servers: [] };
+        const r = await bridges.discoverCtx?.marketplace.browse(query ?? '');
+        return r ?? { servers: [], next_cursor: null };
       } catch {
-        return { servers: [] };
+        return { servers: [], next_cursor: null };
       }
     },
     'discover:activate': async (id) => {
