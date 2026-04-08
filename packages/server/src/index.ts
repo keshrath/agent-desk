@@ -8,6 +8,7 @@
 import { createServer } from 'http';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { readFileSync } from 'fs';
 import express from 'express';
 import {
   TerminalManager,
@@ -85,6 +86,25 @@ app.get('/healthz', (_req, res) => {
 // at /ui/web-entry.js so the renderer's <script> tags can pull it in.
 const uiRoot = join(__dirname, '..', '..', 'ui', 'src', 'renderer');
 const uiSharedRoot = join(__dirname, '..', '..', 'ui', 'src');
+
+// Render index.html with the web-entry shim injected as the FIRST script tag
+// inside <head>. The desktop loads index.html directly via Electron's preload
+// (which exposes window.agentDesk), while the web target needs the script
+// injected because there's no preload bridge.
+const INDEX_HTML_PATH = join(uiRoot, 'index.html');
+let cachedIndexHtml: string | null = null;
+function renderIndexHtml(): string {
+  if (cachedIndexHtml) return cachedIndexHtml;
+  const raw = readFileSync(INDEX_HTML_PATH, 'utf-8');
+  const injection = '<script type="module" src="/ui/web-entry.js"></script>';
+  cachedIndexHtml = raw.replace('</head>', `  ${injection}\n  </head>`);
+  return cachedIndexHtml;
+}
+
+app.get(['/', '/index.html'], (_req, res) => {
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.send(renderIndexHtml());
+});
 app.use(express.static(uiRoot));
 app.use('/ui', express.static(uiSharedRoot));
 

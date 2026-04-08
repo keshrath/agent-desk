@@ -58,6 +58,14 @@ test.describe('@agent-desk/server browser UI', () => {
     expect(body).toContain('rpc');
   });
 
+  test('injects the web-entry script tag into the served index.html', async ({ request }) => {
+    const res = await request.get(`/index.html?t=${TOKEN}`);
+    expect(res.status()).toBe(200);
+    const body = await res.text();
+    expect(body).toContain('/ui/web-entry.js');
+    expect(body).toContain('type="module"');
+  });
+
   test('serves the placeholder PWA icons with a valid token', async ({ request }) => {
     const res192 = await request.get(`/ui/../../pwa/public/icons/192.png?t=${TOKEN}`);
     // The path traversal above should NOT escape the static root.
