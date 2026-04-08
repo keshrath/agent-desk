@@ -26,7 +26,10 @@ describe('createRouter — request channels', () => {
 
   it('dispatchRequest() resolves runtime-string channels', async () => {
     const router = createRouter({
-      requestHandlers: { 'system:stats': () => ({ cpu: 42, ram: { used: 0, total: 0, percent: 0 }, disk: { used: 0, total: 0, percent: 0 } }) as never },
+      requestHandlers: {
+        'system:stats': () =>
+          ({ cpu: 42, ram: { used: 0, total: 0, percent: 0 }, disk: { used: 0, total: 0, percent: 0 } }) as never,
+      },
       commandHandlers: {},
     });
     const result = (await router.dispatchRequest('system:stats', [])) as { cpu: number };
@@ -102,7 +105,9 @@ describe('createRouter — push event bus', () => {
 
   it('emit() to a channel with no listeners is a no-op', () => {
     const router = createRouter({ requestHandlers: {}, commandHandlers: {} });
-    expect(() => router.emit('config:changed', { version: 1, settings: {}, profiles: [], workspaces: {} })).not.toThrow();
+    expect(() =>
+      router.emit('config:changed', { version: 1, settings: {}, profiles: [], workspaces: {} }),
+    ).not.toThrow();
   });
 
   it('multiple listeners on the same channel all receive the event', () => {

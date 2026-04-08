@@ -5,11 +5,7 @@
 // done. No edits to this file.
 
 import { contextBridge, ipcRenderer } from 'electron';
-import {
-  buildAgentDeskApi,
-  type ApiTransport,
-  type LocalOnlyBinding,
-} from '@agent-desk/core';
+import { buildAgentDeskApi, type ApiTransport, type LocalOnlyBinding } from '@agent-desk/core';
 
 const transport: ApiTransport = {
   request(channel, args) {

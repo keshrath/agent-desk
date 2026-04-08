@@ -82,7 +82,6 @@ const nonModuleFiles = [
   'packages/ui/src/renderer/event-bus.js',
   'packages/ui/src/renderer/agent-parser.js',
   'packages/ui/src/renderer/event-stream.js',
-  'packages/ui/src/renderer/replay.js',
   'packages/ui/src/renderer/theme-init.js',
 ];
 
@@ -97,13 +96,9 @@ const esModuleFiles = [
   'packages/ui/src/renderer/commands.js',
   'packages/ui/src/renderer/context-menus.js',
   'packages/ui/src/renderer/notifications.js',
-  'packages/ui/src/renderer/linking.js',
   'packages/ui/src/renderer/agent-features.js',
-  'packages/ui/src/renderer/recording-ui.js',
   'packages/ui/src/renderer/drag-drop.js',
-  'packages/ui/src/renderer/dashboard.js',
   'packages/ui/src/renderer/workspaces.js',
-  'packages/ui/src/renderer/per-terminal.js',
   'packages/ui/src/renderer/system-monitor.js',
   'packages/ui/src/renderer/agent-monitor.js',
   'packages/ui/src/renderer/batch-launcher.js',
@@ -113,10 +108,6 @@ const esModuleFiles = [
   'packages/ui/src/renderer/onboarding.js',
   'packages/ui/src/renderer/feature-tips.js',
   'packages/ui/src/renderer/dom-utils.js',
-  'packages/ui/src/renderer/views/comm-view.js',
-  'packages/ui/src/renderer/views/tasks-view.js',
-  'packages/ui/src/renderer/views/knowledge-view.js',
-  'packages/ui/src/renderer/views/discover-view.js',
   'packages/ui/src/web-entry.js',
 ];
 

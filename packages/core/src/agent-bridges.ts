@@ -27,6 +27,13 @@ import {
 
 export type EmitFn = (channel: string, payload: unknown) => void;
 
+export type BridgeStatus = 'ok' | 'failed' | 'uninitialized';
+export interface BridgesStatus {
+  comm: BridgeStatus;
+  tasks: BridgeStatus;
+  discover: BridgeStatus;
+}
+
 export const knowledge = {
   getConfig: getKnowledgeConfig,
   listEntries,
@@ -45,6 +52,9 @@ export class AgentBridges {
   #tasksCtx: TasksContext | null = null;
   #discoverCtx: DiscoverContext | null = null;
   #intervals: ReturnType<typeof setInterval>[] = [];
+  #commFailed = false;
+  #tasksFailed = false;
+  #discoverFailed = false;
 
   get commCtx(): CommContext | null {
     return this.#commCtx;
@@ -61,20 +71,38 @@ export class AgentBridges {
       this.#commCtx = createCommContext();
       process.stderr.write('[agent-desk] native comm context initialized\n');
     } catch (err) {
+      this.#commFailed = true;
       process.stderr.write(`[agent-desk] comm context failed: ${err}\n`);
     }
     try {
       this.#tasksCtx = createTasksContext();
       process.stderr.write('[agent-desk] native tasks context initialized\n');
     } catch (err) {
+      this.#tasksFailed = true;
       process.stderr.write(`[agent-desk] tasks context failed: ${err}\n`);
     }
     try {
       this.#discoverCtx = createDiscoverContext();
       process.stderr.write('[agent-desk] native discover context initialized\n');
     } catch (err) {
+      this.#discoverFailed = true;
       process.stderr.write(`[agent-desk] discover context failed: ${err}\n`);
     }
+  }
+
+  /** Count of contexts that failed to initialize. */
+  get failed(): number {
+    return (this.#commFailed ? 1 : 0) + (this.#tasksFailed ? 1 : 0) + (this.#discoverFailed ? 1 : 0);
+  }
+
+  /** Per-bridge initialization status for health reporting. */
+  status(): BridgesStatus {
+    const resolve = (ctx: unknown, failed: boolean): BridgeStatus => (ctx ? 'ok' : failed ? 'failed' : 'uninitialized');
+    return {
+      comm: resolve(this.#commCtx, this.#commFailed),
+      tasks: resolve(this.#tasksCtx, this.#tasksFailed),
+      discover: resolve(this.#discoverCtx, this.#discoverFailed),
+    };
   }
 
   close(): void {

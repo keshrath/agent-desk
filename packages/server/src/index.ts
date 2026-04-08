@@ -48,6 +48,11 @@ terminals.onHistoryEntry((entry) => history.add(entry));
 
 const bridges = new AgentBridges();
 bridges.init();
+if (bridges.failed === 3) {
+  process.stderr.write(
+    "WARNING: all agent SDK contexts failed to initialize. Run 'npm run rebuild:server' to rebuild better-sqlite3 against the current Node ABI.\n",
+  );
+}
 
 // Plugin discovery: server's node_modules sits at packages/server/node_modules
 // or the workspace root depending on hoisting. Walk up.
@@ -79,7 +84,11 @@ app.use((req, res, next) => {
 });
 
 app.get('/healthz', (_req, res) => {
-  res.json({ ok: true, version: process.env.AGENT_DESK_VERSION || '0.0.0-server' });
+  res.json({
+    ok: true,
+    version: process.env.AGENT_DESK_VERSION || '0.0.0-server',
+    bridges: bridges.status(),
+  });
 });
 
 // Static UI from packages/ui/src/renderer + the WS-transport web shim

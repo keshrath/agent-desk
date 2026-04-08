@@ -76,47 +76,44 @@ export function mountElectronHandlers(deps: ElectronHandlersDeps): () => void {
   );
 
   // Pop-out terminal into its own window
-  ipcMain.handle(
-    'terminal:popout',
-    (_e, opts: { terminalId: string; title: string; cols?: number; rows?: number }) => {
-      const popWin = new BrowserWindow({
-        width: 800,
-        height: 500,
-        title: opts.title || 'Terminal',
-        icon: join(resourcesDir, 'icon.png'),
-        backgroundColor: '#1a1d23',
-        autoHideMenuBar: true,
-        webPreferences: {
-          preload: preloadPath,
-          contextIsolation: true,
-          nodeIntegration: false,
-          sandbox: false,
-        },
-      });
-      const termId = encodeURIComponent(opts.terminalId);
-      const title = encodeURIComponent(opts.title || 'Terminal');
-      popWin.loadFile(join(rendererDir, 'popout.html'), {
-        query: { terminalId: termId, title: title },
-      });
-      terminals.subscribe(opts.terminalId, {
-        send: (data: string) => {
-          try {
-            popWin.webContents.send('terminal:data', opts.terminalId, data);
-          } catch {
-            /* window closed */
-          }
-        },
-        sendExit: (exitCode: number) => {
-          try {
-            popWin.webContents.send('terminal:exit', opts.terminalId, exitCode);
-          } catch {
-            /* window closed */
-          }
-        },
-      });
-      return { windowId: popWin.id };
-    },
-  );
+  ipcMain.handle('terminal:popout', (_e, opts: { terminalId: string; title: string; cols?: number; rows?: number }) => {
+    const popWin = new BrowserWindow({
+      width: 800,
+      height: 500,
+      title: opts.title || 'Terminal',
+      icon: join(resourcesDir, 'icon.png'),
+      backgroundColor: '#1a1d23',
+      autoHideMenuBar: true,
+      webPreferences: {
+        preload: preloadPath,
+        contextIsolation: true,
+        nodeIntegration: false,
+        sandbox: false,
+      },
+    });
+    const termId = encodeURIComponent(opts.terminalId);
+    const title = encodeURIComponent(opts.title || 'Terminal');
+    popWin.loadFile(join(rendererDir, 'popout.html'), {
+      query: { terminalId: termId, title: title },
+    });
+    terminals.subscribe(opts.terminalId, {
+      send: (data: string) => {
+        try {
+          popWin.webContents.send('terminal:data', opts.terminalId, data);
+        } catch {
+          /* window closed */
+        }
+      },
+      sendExit: (exitCode: number) => {
+        try {
+          popWin.webContents.send('terminal:exit', opts.terminalId, exitCode);
+        } catch {
+          /* window closed */
+        }
+      },
+    });
+    return { windowId: popWin.id };
+  });
 
   // Open path in system file manager
   ipcMain.on('shell:openPath', (_e, dirPath: string) => {

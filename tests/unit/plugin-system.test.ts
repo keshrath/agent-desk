@@ -43,8 +43,22 @@ describe('plugin-system', () => {
   });
 
   it('discoverPlugins() finds packages with agent-desk-plugin.json', () => {
-    writePlugin('plugin-a', { id: 'plugin-a', name: 'Plugin A', icon: 'star', version: '1.0.0', description: 'a', ui: 'app.js' });
-    writePlugin('plugin-b', { id: 'plugin-b', name: 'Plugin B', icon: 'bolt', version: '2.0.0', description: 'b', ui: 'app.js' });
+    writePlugin('plugin-a', {
+      id: 'plugin-a',
+      name: 'Plugin A',
+      icon: 'star',
+      version: '1.0.0',
+      description: 'a',
+      ui: 'app.js',
+    });
+    writePlugin('plugin-b', {
+      id: 'plugin-b',
+      name: 'Plugin B',
+      icon: 'bolt',
+      version: '2.0.0',
+      description: 'b',
+      ui: 'app.js',
+    });
     writePlugin('not-a-plugin', { id: 'noop' }); // missing required keys, but the loader is permissive
     const plugins = discoverPlugins(tmpDir);
     expect(plugins.length).toBeGreaterThanOrEqual(2);
@@ -62,7 +76,15 @@ describe('plugin-system', () => {
   });
 
   it('getPluginInfoList() builds info entries with file:// urls', () => {
-    writePlugin('p1', { id: 'p1', name: 'P1', icon: 'home', version: '0.1.0', description: 'one', ui: 'app.js', css: 'styles.css' });
+    writePlugin('p1', {
+      id: 'p1',
+      name: 'P1',
+      icon: 'home',
+      version: '0.1.0',
+      description: 'one',
+      ui: 'app.js',
+      css: 'styles.css',
+    });
     const plugins = discoverPlugins(tmpDir);
     const info = getPluginInfoList(plugins);
     expect(info[0].id).toBe('p1');
@@ -94,8 +116,14 @@ describe('plugin-system', () => {
 
   it('getPluginConfig() returns the dashboard URL for known plugin ids', () => {
     const plugins = [
-      { manifest: { id: 'agent-comm', name: 'A', icon: '', version: '1', description: '', ui: 'app.js' }, packageDir: '/x' },
-      { manifest: { id: 'unknown', name: 'X', icon: '', version: '1', description: '', ui: 'app.js' }, packageDir: '/x' },
+      {
+        manifest: { id: 'agent-comm', name: 'A', icon: '', version: '1', description: '', ui: 'app.js' },
+        packageDir: '/x',
+      },
+      {
+        manifest: { id: 'unknown', name: 'X', icon: '', version: '1', description: '', ui: 'app.js' },
+        packageDir: '/x',
+      },
     ];
     expect(getPluginConfig(plugins, 'agent-comm')).toEqual({
       baseUrl: 'http://localhost:3421',

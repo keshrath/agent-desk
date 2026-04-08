@@ -64,6 +64,27 @@ The token is persisted to `~/.agent-desk/server-token`. Delete that file to rota
 | `AGENT_DESK_TERMINAL_CAP`       | `64`        | Hard cap on concurrent ptys per process. `terminal:create` 429s. |
 | `AGENT_DESK_VERSION`            | `0.0.0-server` | Version string surfaced via `/healthz` and crash logs.        |
 
+### Install layout
+
+The systemd unit below assumes you've copied the **built** repo into
+`/opt/agent-desk` and run `npm ci && npm run build && npm run rebuild:server`
+inside it. Concretely:
+
+```bash
+sudo mkdir -p /opt/agent-desk
+sudo chown $USER /opt/agent-desk
+git clone https://github.com/keshrath/agent-desk.git /opt/agent-desk
+cd /opt/agent-desk
+npm ci
+npm run build
+npm run rebuild:server  # rebuild better-sqlite3 against system Node ABI
+```
+
+After that, `node /opt/agent-desk/packages/server/dist/index.js` is the
+runnable entry point referenced by the systemd unit. Per-user state lives
+under `HOME=/var/lib/agent-desk`, which the unit creates via the `useradd
+-m -d /var/lib/agent-desk` command below.
+
 ### systemd unit
 
 `/etc/systemd/system/agent-desk.service`:
@@ -80,19 +101,26 @@ Group=agent-desk
 WorkingDirectory=/opt/agent-desk
 Environment=NODE_ENV=production
 Environment=HOME=/var/lib/agent-desk
-ExecStart=/usr/bin/node /opt/agent-desk/packages/server/dist/index.js --bind 127.0.0.1 --port 8787 --origin https://desk.example.com
+Environment=AGENT_DESK_PORT=3420
+Environment=AGENT_DESK_BIND=127.0.0.1
+ExecStart=/usr/bin/node /opt/agent-desk/packages/server/dist/index.js
 Restart=on-failure
 RestartSec=5
 # hardening
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
-ReadWritePaths=/var/lib/agent-desk
+ReadWritePaths=/var/lib/agent-desk /opt/agent-desk
 ProtectHome=true
 
 [Install]
 WantedBy=multi-user.target
 ```
+
+Note: `ReadWritePaths` includes `/opt/agent-desk` so the `better-sqlite3`
+native module can be loaded read-only by the runtime; the writable path
+is `/var/lib/agent-desk` where `~/.agent-desk/` (config, sessions, the
+server-token file) lives.
 
 Enable & start:
 

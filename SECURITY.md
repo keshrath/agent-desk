@@ -13,8 +13,12 @@ receive critical security fixes only when feasible.
 
 ## Reporting a vulnerability
 
-Report security issues privately by email to **security@mukit.at** rather
-than opening a public issue or pull request.
+Report security issues privately via **GitHub Security Advisories** on the
+upstream repository:
+
+  https://github.com/keshrath/agent-desk/security/advisories/new
+
+Do **not** open a public issue or pull request for security findings.
 
 Please include:
 

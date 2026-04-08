@@ -61,56 +61,67 @@ npm run package
 
 ### Build Steps
 
-`npm run build` does two things:
+The project is an **npm workspaces** monorepo. The root `npm run build` script orchestrates all packages in dependency order:
 
-1. Compiles TypeScript in `src/main/` and `src/preload/` to `dist/`
-2. Runs `scripts/copy-vendor.js` to copy xterm.js and dockview-core from `node_modules` to `src/renderer/vendor/` (gitignored)
-
-The renderer (`src/renderer/`) is vanilla JS served directly -- it is **not** compiled.
+1. `@agent-desk/core` — compiles TypeScript to `packages/core/dist/` (transport-agnostic Node core, no Electron)
+2. `@agent-desk/desktop` — compiles TypeScript (`packages/desktop/src/main/` + `packages/desktop/src/preload/`) to `packages/desktop/dist/`
+3. `@agent-desk/ui` — typecheck only; the renderer is vanilla JS served directly and is **not** compiled
+4. Vendor copy — `scripts/copy-vendor.js` copies xterm.js and dockview-core from `node_modules` to `packages/ui/src/renderer/vendor/` (gitignored)
+5. `@agent-desk/server` — compiles TypeScript to `packages/server/dist/` (Node Express+ws server for the web/PWA target)
 
 ## Project Structure
 
 ```
 agent-desk/
-  src/
-    main/                       Electron main process (TypeScript)
-      index.ts                    App entry, window management, tray, IPC handlers
-      terminal-manager.ts         node-pty terminal lifecycle, buffer capture
-      system-monitor.ts           CPU/RAM/disk polling
-      crash-reporter.ts           Crash log writer with rotation
-    preload/                    Context bridge (TypeScript)
-      index.ts                    Exposes window.agentDesk API to renderer
-      webview-bridge.ts           Preload script for dashboard webviews
-    renderer/                   Frontend (vanilla JS, served directly)
-      index.html                  Main HTML with local vendor imports
-      app.js                      Entry point, session restore, global listeners
-      state.js                    Shared state and registry
-      event-bus.js                Pub/sub event system
-      terminals.js                Terminal creation, tabs, status tracking
-      layout.js                   Dockview grid management
-      views.js                    Sidebar, view switching
-      commands.js                 Command palette, quick switcher, context menu
-      keybinding-manager.js       Customizable keyboard shortcuts
-      keybinds.js                 Shortcut registration
-      settings.js                 Settings panel (40+ options)
-      agent-monitor.js            Agent Monitor view (Ctrl+5)
-      agent-parser.js             Claude Code output parser
-      agent-features.js           Terminal chains
-      batch-launcher.js           Batch launch modal
-      templates.js                Agent templates/recipes CRUD
-      comm-graph.js               Communication graph canvas
-      global-search.js            Cross-terminal search
-      event-stream.js             Event timeline panel
-      search.js                   In-terminal search bar
-      theme-manager.js            Theme system (4 built-in + custom)
-      theme-init.js               Early theme application
-      workspaces.js               Workspace save/load
-      system-monitor.js           Status bar widgets, cost tracking
-      shell-integration.js        OSC sequence parser
-      dashboard.js                Dashboard bridge module
-      dashboard-injectors/        Per-dashboard toolbar injection
-      styles.css                  MD3 dark theme + all component styles
-      vendor/                     Local xterm.js + dockview-core (gitignored)
+  packages/
+    core/                       @agent-desk/core — transport-agnostic Node (TypeScript)
+      src/                        Terminal manager, system monitor, config, sessions,
+                                  plugin system, crash reporter, transport router
+      dist/                       Build output
+    desktop/                    @agent-desk/desktop — Electron shell (TypeScript)
+      src/
+        main/                     App entry, window management, tray, IPC handlers,
+                                  pop-out windows, auto-updater
+        preload/                  Context bridge exposing window.agentDesk API
+      dist/                       Build output
+    ui/                         @agent-desk/ui — renderer (vanilla JS, zero Electron deps)
+      src/
+        renderer/                 Frontend served directly
+          index.html                Main HTML with local vendor imports
+          app.js                    Entry point, session restore, global listeners
+          state.js                  Shared state and registry
+          event-bus.js              Pub/sub event system
+          terminals.js              Terminal creation, tabs, status tracking
+          layout.js                 Dockview grid management
+          views.js                  Sidebar, view switching
+          commands.js               Command palette, quick switcher
+          context-menus.js          Context menu definitions
+          keybinding-manager.js     Customizable keyboard shortcuts
+          keybinds.js               Shortcut registration
+          settings.js               Settings panel
+          agent-monitor.js          Agent Monitor view
+          agent-parser.js           Claude Code output parser
+          agent-features.js         Terminal chains
+          batch-launcher.js         Batch launch modal
+          templates.js              Agent templates/recipes CRUD
+          comm-graph.js             Communication graph canvas
+          global-search.js          Cross-terminal search
+          event-stream.js           Event timeline panel
+          search.js                 In-terminal search bar
+          theme-manager.js          Theme system
+          theme-init.js             Early theme application
+          workspaces.js             Workspace save/load
+          system-monitor.js         Status bar widgets, cost tracking
+          shell-integration.js      OSC sequence parser
+          plugin-loader.js          Plugin discovery/load glue
+          dashboard-injectors/      Per-dashboard toolbar injection
+          styles.css                MD3 dark theme + component styles
+          vendor/                   Local xterm.js + dockview-core (gitignored)
+        web-entry.js              Web/PWA entry point (talks to @agent-desk/server over WS)
+    server/                     @agent-desk/server — Node Express+ws (TypeScript)
+      src/                        WebSocket transport, single-user token auth
+      dist/                       Build output
+    pwa/                        @agent-desk/pwa — mobile PWA entry
   tests/
     unit/                       Unit tests (vitest)
       agent-parser.test.ts        Agent output parser tests
@@ -133,8 +144,8 @@ agent-desk/
 
 ## Code Style
 
-- **TypeScript** for main process and preload (`src/main/`, `src/preload/`)
-- **Vanilla JavaScript** for renderer (`src/renderer/`) -- no React, Vue, or other frameworks
+- **TypeScript** for `@agent-desk/core`, `@agent-desk/desktop` (main + preload), and `@agent-desk/server`
+- **Vanilla JavaScript** for `@agent-desk/ui` (`packages/ui/src/renderer/`) -- no React, Vue, or other frameworks
 - **ESLint + Prettier** enforced via lint-staged (husky pre-commit hook)
 - **Naming**: `camelCase` for functions/variables, `PascalCase` for classes, `UPPER_SNAKE` for constants
 - **Imports**: ES modules throughout
@@ -145,8 +156,8 @@ agent-desk/
 ```bash
 npx prettier --check .          # Check formatting
 npx prettier --write .          # Fix formatting
-npx eslint src/                 # Lint
-npx eslint src/ --fix           # Lint with auto-fix
+npx eslint packages/*/src       # Lint
+npx eslint packages/*/src --fix # Lint with auto-fix
 ```
 
 ## Testing
@@ -184,7 +195,7 @@ E2E tests launch the full Electron app and test UI interactions including termin
    ```bash
    npm run build
    npx prettier --check .
-   npx eslint src/
+   npx eslint packages/*/src
    npm test
    ```
 4. Write or update tests for your changes
@@ -194,7 +205,7 @@ E2E tests launch the full Electron app and test UI interactions including termin
 
 - [ ] `npm run build` compiles cleanly
 - [ ] `npx prettier --check .` passes
-- [ ] `npx eslint src/` passes
+- [ ] `npx eslint packages/*/src` passes
 - [ ] `npm test` passes
 - [ ] New features have tests
 - [ ] No framework dependencies added to renderer

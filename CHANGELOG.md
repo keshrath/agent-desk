@@ -2,6 +2,65 @@
 
 All notable changes to Agent Desk are documented in this file.
 
+## [1.4.10] - 2026-04-08
+
+### Added
+
+- **`TESTING.md`** describing the 3-layer test architecture (unit in `packages/*/src/**/*.test.ts`, integration in `tests/integration/`, E2E in `tests/e2e/`), how to run each layer, and what belongs where.
+- **`packages/core/src/platform/paths.test.ts`** — 5 unit tests covering the platform path resolver (home expansion, per-platform config dir, session/buffer/crash subpaths).
+- **`packages/core/src/crash-reporter.test.ts`** — 8 unit tests covering crash log write, rotation cap, recency detection, and latest-crash lookup.
+
+## [1.4.9] - 2026-04-08
+
+### Added
+
+- **`packages/core/src/transport/router.test.ts`** — 13 unit tests covering the `createRouter()` dispatch backbone: request routing, command routing, missing-handler errors, push-bus fan-out, and `dispatchRequest` runtime-string escape hatch.
+- **`packages/core/src/transport/api-shape.test.ts`** — 9 unit tests asserting `API_SHAPE` stays in sync with `RequestChannelMap` / `CommandChannelMap` / `PushChannelMap` and that `buildAgentDeskApi()` produces the expected bucket shape for each binding kind.
+
+These lock down the architectural backbone that both transports (Electron IPC + WebSocket) rely on.
+
+## [1.4.8] - 2026-04-08
+
+### Added
+
+- **`packages/core/src/session-store.test.ts`** — 7 unit tests covering session save, load, window-bounds persistence, and buffer retrieval.
+- **`packages/core/src/plugin-system.test.ts`** — 8 unit tests covering plugin discovery, manifest parsing, asset resolution, per-plugin config, and teardown.
+
+## [1.4.7] - 2026-04-08
+
+### Added
+
+Unit test coverage for 4 core stores:
+
+- **`config-store.test.ts`** — 5 tests (read/write round-trip, defaults, hot-reload watcher, malformed JSON fallback, atomic write).
+- **`keybindings-store.test.ts`** — 4 tests (read/write, default merge, unknown-key passthrough, empty file handling).
+- **`history-store.test.ts`** — 6 tests (append, cap, de-dup, read, per-terminal filter, clear).
+- **`file-ops.test.ts`** — 5 tests (`fileStat`, `fileDirname`, `fileWrite`, missing-path error, directory-write error).
+
+## [1.4.6] - 2026-04-08
+
+### Removed
+
+- Dead `renderField()` helper in `packages/ui/src/renderer/settings.js`. No callers remained after the settings-panel rewrite.
+
+### Changed
+
+- ESLint now reports **zero warnings** across the repo.
+
+## [1.4.5] - 2026-04-08
+
+### Added
+
+- **`SECURITY.md`** documenting the threat model, supported versions, and the private disclosure process.
+- **`tests/integration/server-rate-limit.test.ts`** — 2 integration tests exercising the per-connection token bucket added in v1.4.3: bursts above `AGENT_DESK_RATE_LIMIT_BURST` are rejected with a 0-id error frame, and the bucket refills at `AGENT_DESK_RATE_LIMIT_RPS`.
+- **`npm run check`** umbrella script wiring `build → eslint → prettier --check → vitest → playwright web` into a single command so contributors can run the full CI gate locally.
+
+## [1.4.4] - 2026-04-08
+
+### Changed — R4
+
+- **Bridge channel result types tightened** by importing the real `.d.ts` types from the external `agent-comm`, `agent-tasks`, `agent-knowledge`, and `agent-discover` SDKs. Channels like `comm:inbox`, `tasks:list`, `knowledge:search`, `discover:list` now return the concrete SDK response types instead of `unknown` in `RequestChannelMap`. The renderer gets full autocomplete and the router gets real type checking on the hot path.
+
 ## [1.4.3] - 2026-04-08
 
 ### Added — R11 + R12

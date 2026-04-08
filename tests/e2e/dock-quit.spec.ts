@@ -33,10 +33,7 @@ test.afterEach(async ({}, testInfo) => {
   if (window) await screenshotOnFailure(window, testInfo);
   if (app) {
     try {
-      await Promise.race([
-        app.evaluate(({ app: a }) => a.exit(0)),
-        new Promise((r) => setTimeout(r, 3000)),
-      ]);
+      await Promise.race([app.evaluate(({ app: a }) => a.exit(0)), new Promise((r) => setTimeout(r, 3000))]);
     } catch {
       /* process already exited */
     }

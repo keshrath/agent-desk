@@ -25,9 +25,7 @@ afterEach(() => {
   }
 });
 
-function makeStubTerminalManager(
-  terminals: Array<{ id: string; buffer?: string; status?: string }>,
-): TerminalManager {
+function makeStubTerminalManager(terminals: Array<{ id: string; buffer?: string; status?: string }>): TerminalManager {
   return {
     list: () =>
       terminals.map((t) => ({
@@ -53,9 +51,8 @@ describe('session-store', () => {
   });
 
   it('saveSession() writes the session blob and per-terminal buffer files', async () => {
-    const { saveSession, loadSession, SESSION_FILE, BUFFER_DIR } = await import(
-      '../../packages/core/src/session-store.js'
-    );
+    const { saveSession, loadSession, SESSION_FILE, BUFFER_DIR } =
+      await import('../../packages/core/src/session-store.js');
     const tm = makeStubTerminalManager([
       { id: 'a', buffer: 'output-a' },
       { id: 'b', buffer: 'output-b' },

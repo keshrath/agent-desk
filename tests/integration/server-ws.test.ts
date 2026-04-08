@@ -115,6 +115,14 @@ describe.skipIf(!existsSync(SERVER_BIN))('@agent-desk/server WS round-trip', () 
     expect(res.status).toBe(401);
   });
 
+  it('exposes bridge status on /healthz', async () => {
+    const res = await fetch(`http://127.0.0.1:${PORT}/healthz`);
+    const body = (await res.json()) as { ok: boolean; bridges: { comm: string; tasks: string; discover: string } };
+    expect(body.ok).toBe(true);
+    expect(body.bridges).toBeDefined();
+    expect(['ok', 'failed', 'uninitialized']).toContain(body.bridges.comm);
+  });
+
   it('serves the UI shell with a valid token', async () => {
     const res = await fetch(`http://127.0.0.1:${PORT}/index.html?t=${TOKEN}`);
     expect(res.status).toBe(200);

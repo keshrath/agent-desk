@@ -72,9 +72,8 @@ describe('crash-reporter', () => {
   });
 
   it('hasRecentCrashLogs() returns false when only old files exist', async () => {
-    const { writeCrashLog, hasRecentCrashLogs, CRASH_LOG_DIR } = await import(
-      '../../packages/core/src/crash-reporter.js'
-    );
+    const { writeCrashLog, hasRecentCrashLogs, CRASH_LOG_DIR } =
+      await import('../../packages/core/src/crash-reporter.js');
     writeCrashLog(new Error('stale'));
     const files = readdirSync(CRASH_LOG_DIR).filter((f) => f.startsWith('crash-'));
     const oldTime = new Date(Date.now() - 60 * 60 * 1000);
