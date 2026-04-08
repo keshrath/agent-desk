@@ -54,6 +54,20 @@ export {
 } from './plugin-system.js';
 export type { LoadedPlugin, PluginManifest, PluginInfo } from './plugin-system.js';
 
+export { API_SHAPE, API_TOPLEVEL, buildAgentDeskApi } from './transport/api-shape.js';
+export type {
+  ApiBinding,
+  ApiBindingKind,
+  ApiBucket,
+  ApiShape,
+  ApiTransport,
+  AgentDeskApi,
+  RequestBinding,
+  CommandBinding,
+  SubscribeBinding,
+  LocalOnlyBinding,
+} from './transport/api-shape.js';
+
 export { createRouter } from './transport/router.js';
 export type { Router, RequestHandlers, CommandHandlers, CreateRouterOptions } from './transport/router.js';
 export type {
