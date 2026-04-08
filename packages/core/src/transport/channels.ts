@@ -12,6 +12,17 @@
 // the body args/return types here become non-`unknown`. The shape and
 // channel names are stable from day one — that's the contract.
 
+import type { TerminalManager, HistoryEntry } from '../terminal-manager.js';
+import type { SessionData } from '../session-store.js';
+import type { ConfigData } from '../config-store.js';
+import type { SystemStats } from '../system-monitor.js';
+import type { PluginInfo } from '../plugin-system.js';
+import type { ConfigResult } from '../mcp-autoconfig.js';
+
+type TerminalListItem = ReturnType<TerminalManager['list']>[number];
+type DetectedTool = { name: string; label: string; path: string; configured: boolean };
+type PluginConfig = { baseUrl: string; wsUrl: string } | null;
+
 // ---------------------------------------------------------------------------
 // Request / response
 // ---------------------------------------------------------------------------
@@ -27,13 +38,13 @@ export interface RequestChannelMap {
   'terminal:kill':    { args: [id: string]; result: boolean };
   'terminal:signal':  { args: [id: string, signal: string]; result: boolean };
   'terminal:restart': { args: [id: string]; result: { id: string; cwd: string; command: string; args: string[] } | null };
-  'terminal:list':    { args: []; result: unknown[] };
+  'terminal:list':    { args: []; result: TerminalListItem[] };
 
   // session
-  'session:save':         { args: []; result: unknown };
-  'session:load':         { args: []; result: unknown };
+  'session:save':         { args: []; result: void };
+  'session:load':         { args: []; result: SessionData | null };
   'session:getBuffer':    { args: [id: string]; result: string };
-  'session:autoSave':     { args: []; result: unknown };
+  'session:autoSave':     { args: []; result: void };
   'session:replayBuffer': { args: [id: string]; result: string };
   'session:setAgentInfo': { args: [id: string, agentName: string | null, profileName: string | null]; result: boolean };
   'session:saveLayout':   { args: [layout: unknown]; result: boolean };
@@ -44,12 +55,12 @@ export interface RequestChannelMap {
   'file:dirname': { args: [filePath: string]; result: string };
 
   // config / keybindings / history
-  'config:read':       { args: []; result: unknown };
+  'config:read':       { args: []; result: ConfigData };
   'config:write':      { args: [data: unknown]; result: boolean };
   'config:getPath':    { args: []; result: string };
   'keybindings:read':  { args: []; result: Record<string, string | null> };
   'keybindings:write': { args: [data: Record<string, string | null>]; result: boolean };
-  'history:get':       { args: [limit?: number, search?: string]; result: unknown[] };
+  'history:get':       { args: [limit?: number, search?: string]; result: HistoryEntry[] };
   'history:clear':     { args: []; result: boolean };
 
   // agent-comm bridge
@@ -86,7 +97,7 @@ export interface RequestChannelMap {
   'discover:health':     { args: [serverId: number]; result: unknown };
 
   // system
-  'system:stats':            { args: []; result: unknown };
+  'system:stats':            { args: []; result: SystemStats };
   'system:start-monitoring': { args: []; result: void };
   'system:stop-monitoring':  { args: []; result: void };
 
@@ -95,12 +106,12 @@ export interface RequestChannelMap {
   'app:getCrashLogDir': { args: []; result: string };
 
   // mcp autoconfig
-  'mcp:detect-tools':   { args: []; result: unknown };
-  'mcp:auto-configure': { args: []; result: unknown };
+  'mcp:detect-tools':   { args: []; result: DetectedTool[] };
+  'mcp:auto-configure': { args: []; result: ConfigResult[] };
 
   // plugins
-  'plugins:list':      { args: []; result: unknown[] };
-  'plugins:getConfig': { args: [pluginId: string]; result: unknown };
+  'plugins:list':      { args: []; result: PluginInfo[] };
+  'plugins:getConfig': { args: [pluginId: string]; result: PluginConfig };
 }
 
 export type RequestChannel = keyof RequestChannelMap;

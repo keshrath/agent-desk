@@ -117,13 +117,21 @@ const esModuleFiles = [
   'packages/ui/src/renderer/views/tasks-view.js',
   'packages/ui/src/renderer/views/knowledge-view.js',
   'packages/ui/src/renderer/views/discover-view.js',
+  'packages/ui/src/web-entry.js',
 ];
+
+const webEntryGlobals = {
+  ...rendererGlobals,
+  WebSocket: 'readonly',
+  Notification: 'readonly',
+  location: 'readonly',
+};
 
 export default [
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
-    files: ['src/**/*.ts'],
+    files: ['packages/**/*.ts'],
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: 'module',
@@ -134,6 +142,15 @@ export default [
       '@typescript-eslint/no-require-imports': 'off',
       'no-console': 'off',
     },
+  },
+  {
+    files: ['packages/ui/src/web-entry.js'],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: 'module',
+      globals: webEntryGlobals,
+    },
+    rules: rendererRules,
   },
   {
     files: nonModuleFiles,

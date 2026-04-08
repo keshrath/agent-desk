@@ -37,6 +37,10 @@ export type CommandHandlers = {
 export interface Router {
   request<K extends RequestChannel>(channel: K, ...args: RequestArgs<K>): Promise<RequestResult<K>>;
   command<K extends CommandChannel>(channel: K, ...args: CommandArgs<K>): void;
+  /** Runtime-string dispatch for a request channel. Throws if no handler. */
+  dispatchRequest(channel: string, args: unknown[]): Promise<unknown>;
+  /** Runtime-string dispatch for a command channel. Throws if no handler. */
+  dispatchCommand(channel: string, args: unknown[]): void;
   on<K extends PushChannel>(channel: K, listener: (...args: PushArgs<K>) => void): () => void;
   emit<K extends PushChannel>(channel: K, ...args: PushArgs<K>): void;
   requestChannels: RequestChannel[];
@@ -60,6 +64,24 @@ export function createRouter(opts: CreateRouterOptions): Router {
     },
     command(channel, ...args) {
       const handler = opts.commandHandlers[channel] as CommandHandler<typeof channel> | undefined;
+      if (!handler) throw new Error(`No handler for command channel: ${channel}`);
+      handler(...args);
+    },
+    async dispatchRequest(channel, args) {
+      const handlers = opts.requestHandlers as Record<
+        string,
+        ((...a: unknown[]) => unknown) | undefined
+      >;
+      const handler = handlers[channel];
+      if (!handler) throw new Error(`No handler for request channel: ${channel}`);
+      return handler(...args);
+    },
+    dispatchCommand(channel, args) {
+      const handlers = opts.commandHandlers as Record<
+        string,
+        ((...a: unknown[]) => void) | undefined
+      >;
+      const handler = handlers[channel];
       if (!handler) throw new Error(`No handler for command channel: ${channel}`);
       handler(...args);
     },

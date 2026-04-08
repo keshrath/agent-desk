@@ -16,11 +16,31 @@
    npm run build
    ```
 
+## Node version
+
+All workspace packages pin Node via the `engines` field:
+
+```json
+"engines": { "node": ">=22.0.0 <23.0.0", "npm": ">=10.0.0" }
+```
+
+This is critical because agent-desk ships native modules (`better-sqlite3`, `node-pty`) that are compiled against a specific Node ABI. The Electron desktop target bundles its own Node (Electron 35.x), but `@agent-desk/server` runs under system Node and will silently break if contributors use a different major version than the one the prebuilt binaries target.
+
+A `.nvmrc` file at the repo root pins the major version to `22`. Before running `npm install`, switch your shell:
+
+```bash
+nvm use        # reads .nvmrc
+# or: nvm install 22 && nvm use 22
+# or: fnm use / volta pin node@22
+```
+
+If you absolutely must install under a different major version, pass `--engine-strict=false` to npm — but expect native module rebuild failures.
+
 ## Development Setup
 
 ### Prerequisites
 
-- **Node.js >= 22** (LTS recommended)
+- **Node.js 22.x** (enforced via `engines` + `.nvmrc`)
 - **npm >= 10**
 - **Git**
 - **Python 3** (required by node-gyp for native module compilation)

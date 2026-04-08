@@ -11,20 +11,23 @@ jobs:
   check:
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    strategy:
-      matrix:
-        node-version: [20, 22]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: ${{ matrix.node-version }}
+          node-version: 22
           cache: npm
       - run: npm ci
       - run: npm run build
-      - run: npx prettier --check .
-      - run: npx eslint src/
+      - run: npx eslint packages/*/src
+      - run: npx prettier --check "packages/**/*.{ts,js,css,html}"
       - run: npm test
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+      - name: Playwright web e2e
+        run: npx playwright test --project=web
+        # Electron playwright project is intentionally skipped on CI: it needs
+        # a display + electron-rebuild of better-sqlite3, which is flaky in CI.
 
   build-linux:
     needs: check

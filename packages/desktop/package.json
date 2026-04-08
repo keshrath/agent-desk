@@ -2,11 +2,18 @@
   "name": "@agent-desk/desktop",
   "version": "0.0.0",
   "private": true,
-  "description": "Electron shell for agent-desk. Hosts the preload script (and eventually main + adapters) that bridge @agent-desk/core into Electron's IPC.",
+  "description": "Electron shell for agent-desk. Hosts the main process + preload that bridge @agent-desk/core into Electron's IPC.",
   "type": "module",
-  "main": "dist/index.js",
+  "main": "dist/main/index.js",
+  "engines": {
+    "node": ">=22.0.0 <23.0.0",
+    "npm": ">=10.0.0"
+  },
   "scripts": {
     "build": "tsc"
+  },
+  "dependencies": {
+    "@agent-desk/core": "*"
   },
   "devDependencies": {
     "electron": "^35.0.0",

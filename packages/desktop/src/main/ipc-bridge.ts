@@ -19,16 +19,12 @@ export interface MountIpcBridgeOptions {
 
 export function mountIpcBridge(opts: MountIpcBridgeOptions): () => void {
   const { router, pushChannels, getWindow } = opts;
-  const r = router as unknown as {
-    request: (ch: string, ...args: unknown[]) => Promise<unknown>;
-    command: (ch: string, ...args: unknown[]) => void;
-  };
 
   for (const ch of router.requestChannels) {
-    ipcMain.handle(ch, (_e, ...args) => r.request(ch, ...args));
+    ipcMain.handle(ch, (_e, ...args) => router.dispatchRequest(ch, args));
   }
   for (const ch of router.commandChannels) {
-    ipcMain.on(ch, (_e, ...args) => r.command(ch, ...args));
+    ipcMain.on(ch, (_e, ...args) => router.dispatchCommand(ch, args));
   }
 
   const unsubs: Array<() => void> = [];

@@ -16,17 +16,13 @@ import {
   HistoryStore,
   saveSession as coreSaveSession,
   loadSession,
-  fileWrite,
   getSystemStats,
   AgentBridges,
   createRouter,
-  buildDefaultRequestHandlers,
-  buildDefaultCommandHandlers,
-  type RequestHandlers,
-  type CommandHandlers,
   type PushChannel,
 } from '@agent-desk/core';
 import { mountIpcBridge } from './ipc-bridge.js';
+import { buildDesktopRequestHandlers, buildDesktopCommandHandlers } from './desktop-handlers.js';
 import { discoverPlugins, registerPluginProtocol, setupPluginIPC, type LoadedPlugin } from './plugin-electron.js';
 
 setAppVersion(app.getVersion());
@@ -43,8 +39,8 @@ const bridges = new AgentBridges();
 
 // Live reload in development — watches renderer files
 try {
-  require('electron-reload')(join(__dirname, '../../packages/ui/src/renderer'), {
-    electron: join(__dirname, '../../node_modules/.bin/electron'),
+  require('electron-reload')(join(__dirname, '../../../../packages/ui/src/renderer'), {
+    electron: join(__dirname, '../../../../node_modules/.bin/electron'),
   });
 } catch {
   // electron-reload not available in production builds
@@ -147,19 +143,19 @@ function createWindow(): BrowserWindow {
     minWidth: 800,
     minHeight: 600,
     title: 'Agent Desk',
-    icon: join(__dirname, '../../resources/icon.png'),
+    icon: join(__dirname, '../../../../resources/icon.png'),
     backgroundColor: '#1a1d23',
     frame: false,
     autoHideMenuBar: true,
     webPreferences: {
-      preload: join(__dirname, '../../packages/desktop/dist/preload/index.js'),
+      preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,
     },
   });
 
-  win.loadFile(join(__dirname, '../../packages/ui/src/renderer/index.html'));
+  win.loadFile(join(__dirname, '../../../../packages/ui/src/renderer/index.html'));
 
   let trayNotified = false;
   win.on('close', (e) => {
@@ -184,7 +180,7 @@ function createWindow(): BrowserWindow {
 }
 
 function createTray(): void {
-  const iconPath = join(__dirname, '../../resources/icon.png');
+  const iconPath = join(__dirname, '../../../../resources/icon.png');
   let trayIcon: Electron.NativeImage;
   try {
     trayIcon = nativeImage.createFromPath(iconPath).resize({ width: 16, height: 16 });
@@ -233,86 +229,23 @@ function setupIPC(): void {
   // and the web target share their handler bodies.
   // ---------------------------------------------------------------------------
 
-  const requestHandlers: RequestHandlers = {
-    ...buildDefaultRequestHandlers({
-      terminals: terminalManager,
-      history: historyStore,
-      bridges,
-      plugins: loadedPlugins,
-    }),
-
-    // Desktop overrides — inject window bounds + saved layout into session save,
-    // and enforce the dialog:saveFile approval set on file:write.
-    'session:save': () => {
-      coreSaveSession(terminalManager, {
-        windowBounds: mainWindow?.getBounds(),
-        layout: _savedLayout,
-      });
-    },
-    'session:autoSave': () => {
-      coreSaveSession(terminalManager, {
-        windowBounds: mainWindow?.getBounds(),
-        layout: _savedLayout,
-      });
-    },
-    'session:saveLayout': (layout: unknown) => {
+  const handlerDeps = {
+    terminals: terminalManager,
+    history: historyStore,
+    bridges,
+    plugins: loadedPlugins,
+    getMainWindow: () => mainWindow,
+    getSavedLayout: () => _savedLayout,
+    setSavedLayout: (layout: unknown) => {
       _savedLayout = layout;
-      return true;
     },
-    'file:write': (filePath: string, content: string) => {
-      if (!approvedWritePaths.has(filePath)) {
-        return { ok: false, error: 'File write denied: path not approved via save dialog' };
-      }
-      approvedWritePaths.delete(filePath);
-      try {
-        fileWrite(filePath, content);
-        return { ok: true };
-      } catch (err) {
-        return { ok: false, error: String(err) };
-      }
-    },
-    'terminal:create': (opts) => {
-      try {
-        const term = terminalManager.spawn(opts.cwd, opts.command, opts.args, opts.cols, opts.rows, opts.env);
-        return { id: term.id, cwd: term.cwd, command: term.command, args: term.args, title: term.title };
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        throw new Error(`Failed to spawn terminal: ${msg}`);
-      }
-    },
+    approvedWritePaths,
   };
 
-  const commandHandlers: CommandHandlers = {
-    ...buildDefaultCommandHandlers({
-      terminals: terminalManager,
-      history: historyStore,
-      bridges,
-      plugins: loadedPlugins,
-    }),
-
-    // Desktop terminal:subscribe wires pty data into the main window's
-    // webContents.send. The default no-op in core is replaced here.
-    'terminal:subscribe': (id: string) => {
-      terminalManager.subscribe(id, {
-        send: (data: string) => {
-          try {
-            mainWindow?.webContents.send('terminal:data', id, data);
-          } catch {
-            /* window may be destroyed */
-          }
-        },
-        sendExit: (exitCode: number) => {
-          try {
-            mainWindow?.webContents.send('terminal:exit', id, exitCode);
-          } catch {
-            /* window may be destroyed */
-          }
-        },
-      });
-    },
-  };
-
-  const router = createRouter({ requestHandlers, commandHandlers });
+  const router = createRouter({
+    requestHandlers: buildDesktopRequestHandlers(handlerDeps),
+    commandHandlers: buildDesktopCommandHandlers(handlerDeps),
+  });
 
   // Push channels that core emits and we want forwarded to the renderer.
   // Renderer-side listeners come from the preload script.
@@ -414,11 +347,11 @@ function setupIPC(): void {
       width: 800,
       height: 500,
       title: opts.title || 'Terminal',
-      icon: join(__dirname, '../../resources/icon.png'),
+      icon: join(__dirname, '../../../../resources/icon.png'),
       backgroundColor: '#1a1d23',
       autoHideMenuBar: true,
       webPreferences: {
-        preload: join(__dirname, '../../packages/desktop/dist/preload/index.js'),
+        preload: join(__dirname, '../preload/index.js'),
         contextIsolation: true,
         nodeIntegration: false,
         sandbox: false,
@@ -426,7 +359,7 @@ function setupIPC(): void {
     });
     const termId = encodeURIComponent(opts.terminalId);
     const title = encodeURIComponent(opts.title || 'Terminal');
-    popWin.loadFile(join(__dirname, '../../packages/ui/src/renderer/popout.html'), {
+    popWin.loadFile(join(__dirname, '../../../../packages/ui/src/renderer/popout.html'), {
       query: { terminalId: termId, title: title },
     });
     terminalManager.subscribe(opts.terminalId, {
@@ -552,7 +485,7 @@ app.whenReady().then(async () => {
   historyStore.load();
   bridges.init();
 
-  loadedPlugins = discoverPlugins(join(__dirname, '..', '..', 'node_modules'));
+  loadedPlugins = discoverPlugins(join(__dirname, '..', '..', '..', '..', 'node_modules'));
   setupPluginIPC(loadedPlugins);
   if (loadedPlugins.length > 0) {
     registerPluginProtocol(loadedPlugins);

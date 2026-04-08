@@ -100,13 +100,9 @@ export function attachWsTransport(opts: WsTransportOptions): {
       } catch {
         return;
       }
-      // The router signatures are typed against the channel contract, but
-      // here `msg.ch` is a runtime string from the network — escape the
-      // generic constraint with a single localized cast.
-      const r = router as unknown as { request: (ch: string, ...args: unknown[]) => Promise<unknown>; command: (ch: string, ...args: unknown[]) => void };
       if (msg.id != null) {
         try {
-          const result = await r.request(msg.ch, ...(msg.args ?? []));
+          const result = await router.dispatchRequest(msg.ch, msg.args ?? []);
           const resp: RpcResponse = { id: msg.id, result };
           ws.send(JSON.stringify(resp));
         } catch (err) {
@@ -115,7 +111,7 @@ export function attachWsTransport(opts: WsTransportOptions): {
         }
       } else {
         try {
-          r.command(msg.ch, ...(msg.args ?? []));
+          router.dispatchCommand(msg.ch, msg.args ?? []);
         } catch {
           /* fire and forget */
         }
