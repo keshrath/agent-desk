@@ -7,7 +7,12 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import { pathToFileURL } from 'url';
 import { ipcMain, protocol, type BrowserWindow } from 'electron';
-import { discoverPlugins as coreDiscoverPlugins, destroyPlugins, resolvePluginAsset, type LoadedPlugin } from '@agent-desk/core';
+import {
+  discoverPlugins as coreDiscoverPlugins,
+  destroyPlugins,
+  resolvePluginAsset,
+  type LoadedPlugin,
+} from '@agent-desk/core';
 
 export type { LoadedPlugin } from '@agent-desk/core';
 

@@ -1,6 +1,6 @@
 {
   "name": "agent-desk",
-  "version": "1.5.1",
+  "version": "1.5.2",
   "description": "Unified control center for AI coding agents — terminals, dashboards, and orchestration in one app",
   "author": "Mathias Markl <mathias.markl@mukit.at>",
   "license": "MIT",
@@ -115,6 +115,7 @@
     "@playwright/test": "^1.58.2",
     "@types/node": "^22.0.0",
     "@types/ws": "^8.18.1",
+    "@vitest/coverage-v8": "^4.1.3",
     "electron": "^35.0.0",
     "electron-builder": "^26.0.0",
     "electron-reload": "^2.0.0-alpha.1",

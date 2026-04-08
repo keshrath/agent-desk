@@ -67,20 +67,43 @@ function makeStubHistory(): HistoryStore {
   } as unknown as HistoryStore;
 }
 
-function makeStubBridges(opts: { withCtx?: boolean } = {}): AgentBridges {
+function makeStubBridges(
+  opts: { withCtx?: boolean; discoverServer?: unknown; failActivate?: boolean } = {},
+): AgentBridges {
+  const server = opts.discoverServer ?? { id: 7, name: 'srv', command: 'node', args: ['s.js'], env: {} };
   const ctx = opts.withCtx
     ? {
         agents: { list: () => [{ id: 'a1' }] },
         channels: { list: () => [{ id: 'c1' }] },
-        messages: { list: () => [{ id: 'm1' }] },
-        state: { list: () => [] },
-        feed: { recent: () => [] },
+        messages: { list: (q: { limit?: number }) => [{ id: 'm1', limit: q?.limit }] },
+        state: { list: () => [{ k: 'v' }] },
+        feed: { recent: (n: number) => [{ ev: 'e', n }] },
         tasks: {
-          list: () => [{ id: 1, title: 'task' }],
-          getById: () => ({ id: 1 }),
-          search: () => [{ id: 1 }],
+          list: (filter: unknown) => [{ id: 1, title: 'task', filter }],
+          getById: (id: number) => ({ id }),
+          search: (q: string) => [{ id: 1, q }],
         },
-        registry: { list: () => [], getById: () => null },
+        registry: {
+          list: () => [server],
+          getById: () => server,
+          setActive: vi.fn(),
+          unregister: vi.fn(),
+        },
+        marketplace: {
+          browse: vi.fn(async (q: string) => ({ servers: [{ id: 'm', q }], next_cursor: null })),
+        },
+        proxy: {
+          activate: vi.fn(async () => {
+            if (opts.failActivate) throw new Error('boom');
+          }),
+          deactivate: vi.fn(async () => {}),
+        },
+        secrets: { list: (sid: number) => [{ sid }] },
+        metrics: {
+          getServerMetrics: (sid: number) => [{ sid }],
+          getOverview: () => [{ overview: true }],
+        },
+        health: { getHealth: (sid: number) => ({ sid, status: 'ok' }) },
       }
     : null;
   return {
@@ -294,5 +317,254 @@ describe('buildDefaultCommandHandlers', () => {
       plugins: [],
     });
     expect(() => handlers['terminal:subscribe']!('id-1')).not.toThrow();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Extended coverage — every remaining channel in the default handler map.
+// ---------------------------------------------------------------------------
+
+async function buildH(opts: { withCtx?: boolean; failActivate?: boolean; discoverServer?: unknown } = {}) {
+  const { buildDefaultRequestHandlers } = await import('../../packages/core/src/handlers-default.js');
+  const terminals = makeStubTerminals();
+  const history = makeStubHistory();
+  const bridges = makeStubBridges(opts);
+  return {
+    terminals,
+    history,
+    bridges,
+    handlers: buildDefaultRequestHandlers({ terminals, history, bridges, plugins: [] }),
+  };
+}
+
+describe('terminal — resize / kill / signal / restart', () => {
+  it('terminal:resize delegates', async () => {
+    const { terminals, handlers } = await buildH();
+    expect(handlers['terminal:resize']!('id', 80, 24)).toBe(true);
+    expect(terminals.resize).toHaveBeenCalledWith('id', 80, 24);
+  });
+  it('terminal:kill delegates', async () => {
+    const { terminals, handlers } = await buildH();
+    expect(handlers['terminal:kill']!('id')).toBe(true);
+    expect(terminals.kill).toHaveBeenCalledWith('id');
+  });
+  it('terminal:signal delegates', async () => {
+    const { terminals, handlers } = await buildH();
+    expect(handlers['terminal:signal']!('id', 'SIGINT')).toBe(true);
+    expect(terminals.signal).toHaveBeenCalledWith('id', 'SIGINT');
+  });
+  it('terminal:restart delegates', async () => {
+    const { handlers } = await buildH();
+    const r = handlers['terminal:restart']!('id') as { id: string };
+    expect(r.id).toBe('T2');
+  });
+});
+
+describe('session channels', () => {
+  it('session:save / autoSave / load / getBuffer / replayBuffer do not throw', async () => {
+    const { handlers } = await buildH();
+    expect(() => handlers['session:save']!()).not.toThrow();
+    expect(() => handlers['session:autoSave']!()).not.toThrow();
+    expect(() => handlers['session:load']!()).not.toThrow();
+    expect(handlers['session:getBuffer']!('unknown')).toBe('');
+    expect(handlers['session:replayBuffer']!('unknown')).toBe('');
+  });
+  it('session:setAgentInfo delegates to terminals.setAgentInfo', async () => {
+    const { terminals, handlers } = await buildH();
+    expect(handlers['session:setAgentInfo']!('t', 'agent', 'profile')).toBe(true);
+    expect(terminals.setAgentInfo).toHaveBeenCalledWith('t', 'agent', 'profile');
+  });
+  it('session:saveLayout returns true', async () => {
+    const { handlers } = await buildH();
+    expect(handlers['session:saveLayout']!({})).toBe(true);
+  });
+});
+
+describe('config + keybindings', () => {
+  it('config:write round-trips through readConfig', async () => {
+    const { handlers } = await buildH();
+    const cfg = handlers['config:read']!() as Record<string, unknown>;
+    expect(handlers['config:write']!({ ...cfg, marker: 'x' })).toBe(true);
+    const cfg2 = handlers['config:read']!() as Record<string, unknown>;
+    expect(cfg2.marker).toBe('x');
+  });
+  it('config:getPath returns a string path', async () => {
+    const { handlers } = await buildH();
+    expect(typeof handlers['config:getPath']!()).toBe('string');
+  });
+  it('keybindings:read / keybindings:write round-trip', async () => {
+    const { handlers } = await buildH();
+    expect(typeof handlers['keybindings:read']!()).toBe('object');
+    expect(handlers['keybindings:write']!({ 'ctrl+s': 'save' })).toBeDefined();
+    const kb = handlers['keybindings:read']!() as Record<string, unknown>;
+    expect(kb['ctrl+s']).toBe('save');
+  });
+});
+
+describe('comm bridge — remaining channels', () => {
+  it('with no ctx: messages/channels/state-entries/feed return []', async () => {
+    const { handlers } = await buildH({ withCtx: false });
+    expect(handlers['comm:messages']!(50)).toEqual([]);
+    expect(handlers['comm:channels']!()).toEqual([]);
+    expect(handlers['comm:state-entries']!()).toEqual([]);
+    expect(handlers['comm:feed']!(10)).toEqual([]);
+  });
+  it('with ctx: messages passes the limit through', async () => {
+    const { handlers } = await buildH({ withCtx: true });
+    const msgs = handlers['comm:messages']!(42) as Array<{ limit?: number }>;
+    expect(msgs[0].limit).toBe(42);
+  });
+  it('with ctx: messages default limit = 100 when arg omitted', async () => {
+    const { handlers } = await buildH({ withCtx: true });
+    const msgs = handlers['comm:messages']!() as Array<{ limit?: number }>;
+    expect(msgs[0].limit).toBe(100);
+  });
+  it('with ctx: channels/state-entries/feed return snapshots', async () => {
+    const { handlers } = await buildH({ withCtx: true });
+    expect(handlers['comm:channels']!()).toHaveLength(1);
+    expect(handlers['comm:state-entries']!()).toHaveLength(1);
+    const feed = handlers['comm:feed']!(7) as Array<{ n: number }>;
+    expect(feed[0].n).toBe(7);
+  });
+});
+
+describe('tasks bridge', () => {
+  it('with no ctx: state=null, list/search=[], get=null', async () => {
+    const { handlers } = await buildH({ withCtx: false });
+    expect(handlers['tasks:state']!()).toBe(null);
+    expect(handlers['tasks:list']!({})).toEqual([]);
+    expect(handlers['tasks:get']!(1)).toBe(null);
+    expect(handlers['tasks:search']!('q')).toEqual([]);
+  });
+  it('with ctx: state/list/get/search return snapshots', async () => {
+    const { handlers } = await buildH({ withCtx: true });
+    const st = handlers['tasks:state']!() as { tasks: unknown[] };
+    expect(Array.isArray(st.tasks)).toBe(true);
+    expect(handlers['tasks:list']!({ stage: 'todo' })).toHaveLength(1);
+    expect(handlers['tasks:get']!(9)).toEqual({ id: 9 });
+    const s = handlers['tasks:search']!('hi') as Array<{ q: string }>;
+    expect(s[0].q).toBe('hi');
+  });
+});
+
+describe('knowledge bridge', () => {
+  it('all knowledge:* handlers return safe defaults on error', async () => {
+    const { handlers } = await buildH();
+    // These call into the real knowledge bridge; if the memoryDir doesn't
+    // exist the handler must catch and return [] / null, not throw.
+    expect(() => handlers['knowledge:entries']!()).not.toThrow();
+    expect(() => handlers['knowledge:entries']!('projects')).not.toThrow();
+    expect(() => handlers['knowledge:read']!('projects', 'nope')).not.toThrow();
+    expect(() => handlers['knowledge:read']!('projects')).not.toThrow();
+    expect(() => handlers['knowledge:search']!('nothing')).not.toThrow();
+    expect(() => handlers['knowledge:sessions']!()).not.toThrow();
+    expect(() => handlers['knowledge:session']!('sid', 'proj')).not.toThrow();
+  });
+});
+
+describe('discover bridge', () => {
+  it('with no ctx: handlers return safe defaults', async () => {
+    const { handlers } = await buildH({ withCtx: false });
+    expect(handlers['discover:state']!()).toBe(null);
+    expect(handlers['discover:servers']!()).toEqual([]);
+    expect(handlers['discover:server']!(1)).toBe(null);
+    expect(await handlers['discover:browse']!('foo')).toEqual({ servers: [], next_cursor: null });
+    expect(await handlers['discover:activate']!(1)).toBe(false);
+    expect(await handlers['discover:deactivate']!(1)).toBe(false);
+    expect(handlers['discover:delete']!(1)).toBe(false);
+    expect(handlers['discover:secrets']!(1)).toEqual([]);
+    expect(handlers['discover:metrics']!()).toEqual([]);
+    expect(handlers['discover:health']!(1)).toBe(null);
+  });
+  it('with ctx: state/servers/server/browse/secrets/metrics/health return snapshots', async () => {
+    const { handlers } = await buildH({ withCtx: true });
+    const st = handlers['discover:state']!() as { servers: unknown[] };
+    expect(st.servers).toHaveLength(1);
+    expect(handlers['discover:servers']!()).toHaveLength(1);
+    expect(handlers['discover:server']!(7)).toBeTruthy();
+    const br = (await handlers['discover:browse']!('q')) as { servers: unknown[] };
+    expect(br.servers).toHaveLength(1);
+    // default-query browse path (coalesces to '')
+    const br2 = (await handlers['discover:browse']!()) as { servers: unknown[] };
+    expect(br2.servers).toHaveLength(1);
+    expect(handlers['discover:secrets']!(3)).toEqual([{ sid: 3 }]);
+    // metrics: with id -> server metrics; without id -> overview
+    expect(handlers['discover:metrics']!(3)).toEqual([{ sid: 3 }]);
+    expect(handlers['discover:metrics']!()).toEqual([{ overview: true }]);
+    expect(handlers['discover:health']!(3)).toEqual({ sid: 3, status: 'ok' });
+  });
+  it('activate / deactivate / delete succeed with ctx', async () => {
+    const { bridges, handlers } = await buildH({ withCtx: true });
+    expect(await handlers['discover:activate']!(7)).toBe(true);
+    const ctx = bridges.discoverCtx as unknown as {
+      proxy: { activate: ReturnType<typeof vi.fn>; deactivate: ReturnType<typeof vi.fn> };
+      registry: { setActive: ReturnType<typeof vi.fn>; unregister: ReturnType<typeof vi.fn> };
+    };
+    expect(ctx.proxy.activate).toHaveBeenCalled();
+    expect(ctx.registry.setActive).toHaveBeenCalledWith('srv', true);
+    expect(await handlers['discover:deactivate']!(7)).toBe(true);
+    expect(ctx.proxy.deactivate).toHaveBeenCalledWith('srv');
+    expect(ctx.registry.setActive).toHaveBeenCalledWith('srv', false);
+    expect(handlers['discover:delete']!(7)).toBe(true);
+    expect(ctx.registry.unregister).toHaveBeenCalledWith('srv');
+  });
+  it('activate returns false when server has no command', async () => {
+    const { handlers } = await buildH({ withCtx: true, discoverServer: { id: 7, name: 'srv' } });
+    expect(await handlers['discover:activate']!(7)).toBe(false);
+  });
+  it('activate catches proxy errors and returns false', async () => {
+    const { handlers } = await buildH({ withCtx: true, failActivate: true });
+    expect(await handlers['discover:activate']!(7)).toBe(false);
+  });
+});
+
+describe('system / app / mcp / plugins', () => {
+  it('system:stats returns a SystemStats-shaped object', async () => {
+    const { handlers } = await buildH();
+    const s = handlers['system:stats']!() as { cpu: number; ram: unknown; disk: unknown };
+    expect(typeof s.cpu).toBe('number');
+    expect(s.ram).toBeDefined();
+    expect(s.disk).toBeDefined();
+  });
+  it('system:start-monitoring / stop-monitoring do not throw', async () => {
+    const { handlers } = await buildH();
+    expect(() => handlers['system:start-monitoring']!()).not.toThrow();
+    expect(() => handlers['system:stop-monitoring']!()).not.toThrow();
+  });
+  it('app:reportError writes a crash log (no throw)', async () => {
+    const { handlers } = await buildH();
+    expect(() => handlers['app:reportError']!({ message: 'oops', stack: 'trace', source: 'renderer' })).not.toThrow();
+    expect(() => handlers['app:reportError']!({ message: 'noStack', source: 'renderer' })).not.toThrow();
+  });
+  it('app:getCrashLogDir returns a string', async () => {
+    const { handlers } = await buildH();
+    expect(typeof handlers['app:getCrashLogDir']!()).toBe('string');
+  });
+  it('mcp:detect-tools returns an array', async () => {
+    const { handlers } = await buildH();
+    expect(Array.isArray(handlers['mcp:detect-tools']!())).toBe(true);
+  });
+  it('mcp:auto-configure returns an array (does not throw)', async () => {
+    const { handlers } = await buildH();
+    expect(Array.isArray(handlers['mcp:auto-configure']!())).toBe(true);
+  });
+});
+
+describe('file:write error path', () => {
+  it('returns { ok: false, error } when write fails', async () => {
+    const { handlers } = await buildH();
+    // Write to a path whose parent is a file (guaranteed EEXIST/ENOTDIR).
+    const bad = join(tmpDir, 'no', 'such', 'deep', '\0bad');
+    const r = handlers['file:write']!(bad, 'x') as { ok: boolean; error?: string };
+    expect(r.ok).toBe(false);
+    expect(r.error).toBeDefined();
+  });
+  it('file:stat returns exists:true + size for an existing file', async () => {
+    const { handlers } = await buildH();
+    const p = join(tmpDir, 'exists.txt');
+    handlers['file:write']!(p, 'hello');
+    const s = handlers['file:stat']!(p) as { exists: boolean; size?: number };
+    expect(s.exists).toBe(true);
+    expect(s.size).toBeGreaterThan(0);
   });
 });
