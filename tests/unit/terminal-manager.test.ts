@@ -17,7 +17,7 @@ vi.mock('child_process', () => ({
   execFileSync: vi.fn(() => '/usr/bin/test-cmd'),
 }));
 
-const { TerminalManager } = await import('../../src/main/terminal-manager.js');
+const { TerminalManager } = await import('../../packages/core/src/terminal-manager.js');
 
 describe('TerminalManager', () => {
   let tm: InstanceType<typeof TerminalManager>;

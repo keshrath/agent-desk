@@ -266,7 +266,7 @@ function createWindow(): BrowserWindow {
     frame: false,
     autoHideMenuBar: true,
     webPreferences: {
-      preload: join(__dirname, '../preload/index.js'),
+      preload: join(__dirname, '../../packages/desktop/dist/preload/index.js'),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,
@@ -508,7 +508,7 @@ function setupIPC(): void {
       backgroundColor: '#1a1d23',
       autoHideMenuBar: true,
       webPreferences: {
-        preload: join(__dirname, '../preload/index.js'),
+        preload: join(__dirname, '../../packages/desktop/dist/preload/index.js'),
         contextIsolation: true,
         nodeIntegration: false,
         sandbox: false,

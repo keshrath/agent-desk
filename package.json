@@ -15,7 +15,7 @@
     "packages/*"
   ],
   "scripts": {
-    "build": "npm run build -w @agent-desk/core && tsc && node scripts/copy-vendor.js && npm run build -w @agent-desk/server",
+    "build": "npm run build -w @agent-desk/core && npm run build -w @agent-desk/desktop && tsc && node scripts/copy-vendor.js && npm run build -w @agent-desk/server",
     "dev:server": "npm run build -w @agent-desk/core && npm run build -w @agent-desk/server && node packages/server/dist/index.js",
     "rebuild:desktop": "npx electron-rebuild -f -w better-sqlite3",
     "rebuild:server": "npm rebuild better-sqlite3",
@@ -48,6 +48,7 @@
     "files": [
       "dist/**/*",
       "packages/core/dist/**/*",
+      "packages/desktop/dist/**/*",
       "packages/ui/src/renderer/**/*",
       "resources/**/*",
       "node_modules/**/*",

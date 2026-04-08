@@ -2,7 +2,14 @@
   "name": "@agent-desk/desktop",
   "version": "0.0.0",
   "private": true,
-  "description": "Electron shell for agent-desk. Wraps @agent-desk/core with an IPC transport bridge plus desktop-only adapters (tray, dialog, autoUpdater).",
+  "description": "Electron shell for agent-desk. Hosts the preload script (and eventually main + adapters) that bridge @agent-desk/core into Electron's IPC.",
   "type": "module",
-  "main": "dist/index.js"
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc"
+  },
+  "devDependencies": {
+    "electron": "^35.0.0",
+    "typescript": "^5.7.0"
+  }
 }
