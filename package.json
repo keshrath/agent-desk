@@ -1,6 +1,6 @@
 {
   "name": "agent-desk",
-  "version": "1.4.4",
+  "version": "1.4.5",
   "description": "Unified control center for AI coding agents — terminals, dashboards, and orchestration in one app",
   "author": "Mathias Markl <mathias.markl@mukit.at>",
   "license": "MIT",
@@ -20,6 +20,7 @@
   ],
   "scripts": {
     "build": "npm run build -w @agent-desk/core && npm run build -w @agent-desk/desktop && npm run typecheck -w @agent-desk/ui && node scripts/copy-vendor.js && npm run build -w @agent-desk/server",
+    "check": "npm run build && npm run lint && npm run format:check && npm test && npm run test:e2e:web",
     "dev:server": "npm run build -w @agent-desk/core && npm run build -w @agent-desk/server && node packages/server/dist/index.js",
     "rebuild:desktop": "npx electron-rebuild -f -w better-sqlite3",
     "rebuild:server": "npm rebuild better-sqlite3",
