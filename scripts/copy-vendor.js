@@ -8,7 +8,7 @@ import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = resolve(__dirname, '..');
-const dest = resolve(root, 'src', 'renderer', 'vendor');
+const dest = resolve(root, 'packages', 'ui', 'src', 'renderer', 'vendor');
 
 const copies = [
   // xterm core
@@ -60,4 +60,4 @@ for (const { src, dst } of copies) {
   cpSync(srcPath, dstPath);
 }
 
-console.log(`Copied ${copies.length} vendor files to dist/renderer/vendor/`);
+console.log(`Copied ${copies.length} vendor files to packages/ui/src/renderer/vendor/`);

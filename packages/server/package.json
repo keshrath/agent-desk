@@ -1,0 +1,26 @@
+{
+  "name": "@agent-desk/server",
+  "version": "0.0.0",
+  "private": true,
+  "description": "HTTP + WebSocket server that hosts agent-desk for browsers and the PWA. Wraps @agent-desk/core with a token-authenticated WS transport.",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "agent-desk-server": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@agent-desk/core": "*",
+    "express": "^4.21.0",
+    "ws": "^8.20.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.0.0",
+    "@types/ws": "^8.18.1",
+    "typescript": "^5.7.0"
+  }
+}

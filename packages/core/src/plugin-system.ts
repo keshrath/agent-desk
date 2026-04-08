@@ -1,11 +1,14 @@
-import { existsSync, readFileSync, readdirSync } from 'fs';
-import { join, dirname } from 'path';
-import { homedir } from 'os';
-import { ipcMain, protocol, type BrowserWindow } from 'electron';
-import { fileURLToPath, pathToFileURL } from 'url';
+// Plugin manifest discovery + info-list building. Pure Node — no Electron.
+// The Electron-specific bits (protocol.handle, ipcMain handlers, BrowserWindow
+// init) live in @agent-desk/desktop's plugin-electron.ts and call into here.
+//
+// Web/server target builds plugin info from this same module and serves
+// assets via HTTP routes instead of the plugin:// protocol.
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+import { existsSync, readFileSync, readdirSync } from 'fs';
+import { join } from 'path';
+import { homedir } from 'os';
+import { pathToFileURL } from 'url';
 
 interface PluginManifest {
   id: string;
@@ -37,10 +40,11 @@ interface PluginInfo {
   scriptUrls: string[];
 }
 
-// Discover plugins from node_modules
-function discoverPlugins(): LoadedPlugin[] {
+// Discover plugins from node_modules + ~/.agent-desk/plugins/.
+// Caller passes the node_modules root explicitly so this module stays
+// independent of how/where it's bundled (Electron asar vs Express dist).
+function discoverPlugins(nodeModulesDir: string): LoadedPlugin[] {
   const plugins: LoadedPlugin[] = [];
-  const nodeModulesDir = join(__dirname, '..', '..', 'node_modules');
 
   if (!existsSync(nodeModulesDir)) return plugins;
 
@@ -82,48 +86,31 @@ function tryLoadPlugin(dir: string, plugins: LoadedPlugin[]): void {
   }
 }
 
-// Register plugin:// protocol to serve plugin static files
-function registerPluginProtocol(plugins: LoadedPlugin[]): void {
-  const pluginMap = new Map<string, LoadedPlugin>();
-  for (const p of plugins) pluginMap.set(p.manifest.id, p);
+// Resolve a plugin asset request to an absolute file path on disk, or null
+// if the plugin is unknown or the path tries to escape the plugin's ui dir.
+// Used by both Electron's protocol.handle and the future HTTP route.
+export function resolvePluginAsset(
+  plugins: LoadedPlugin[],
+  pluginId: string,
+  filePath: string,
+): { absPath: string; mimeType: string } | null {
+  const plugin = plugins.find((p) => p.manifest.id === pluginId);
+  if (!plugin) return null;
 
-  protocol.handle('plugin', (req) => {
-    const url = new URL(req.url);
-    const pluginId = url.hostname;
-    const filePath = url.pathname.slice(1); // remove leading /
+  const uiDir = join(plugin.packageDir, 'dist', 'ui');
+  const resolved = join(uiDir, filePath);
+  if (!resolved.startsWith(uiDir)) return null;
+  if (!existsSync(resolved)) return null;
 
-    const plugin = pluginMap.get(pluginId);
-    if (!plugin) {
-      return new Response('Plugin not found', { status: 404 });
-    }
-
-    // Resolve to the dist/ui/ directory
-    const uiDir = join(plugin.packageDir, 'dist', 'ui');
-    const resolved = join(uiDir, filePath);
-
-    // Security: ensure resolved path is within uiDir
-    if (!resolved.startsWith(uiDir)) {
-      return new Response('Forbidden', { status: 403 });
-    }
-
-    if (!existsSync(resolved)) {
-      return new Response('File not found', { status: 404 });
-    }
-
-    const content = readFileSync(resolved);
-    const ext = resolved.split('.').pop()?.toLowerCase();
-    const mimeTypes: Record<string, string> = {
-      js: 'application/javascript',
-      css: 'text/css',
-      html: 'text/html',
-      json: 'application/json',
-      svg: 'image/svg+xml',
-    };
-
-    return new Response(content, {
-      headers: { 'Content-Type': mimeTypes[ext || ''] || 'application/octet-stream' },
-    });
-  });
+  const ext = resolved.split('.').pop()?.toLowerCase();
+  const mimeTypes: Record<string, string> = {
+    js: 'application/javascript',
+    css: 'text/css',
+    html: 'text/html',
+    json: 'application/json',
+    svg: 'image/svg+xml',
+  };
+  return { absPath: resolved, mimeType: mimeTypes[ext || ''] || 'application/octet-stream' };
 }
 
 // Build plugin info for renderer
@@ -155,22 +142,6 @@ function getPluginInfoList(plugins: LoadedPlugin[]): PluginInfo[] {
   });
 }
 
-async function initPlugins(plugins: LoadedPlugin[], mainWindow: BrowserWindow): Promise<void> {
-  for (const plugin of plugins) {
-    if (!plugin.manifest.main) continue;
-    try {
-      const mainPath = join(plugin.packageDir, plugin.manifest.main);
-      const mod = await import(pathToFileURL(mainPath).href);
-      plugin.mainModule = mod;
-      if (typeof mod.initMain === 'function') {
-        mod.initMain({ ipcMain, mainWindow, pluginId: plugin.manifest.id });
-      }
-    } catch (err) {
-      process.stderr.write(`[plugin:${plugin.manifest.id}] main init failed: ${err}\n`);
-    }
-  }
-}
-
 // Cleanup
 function destroyPlugins(plugins: LoadedPlugin[]): void {
   for (const plugin of plugins) {
@@ -185,37 +156,34 @@ function destroyPlugins(plugins: LoadedPlugin[]): void {
   }
 }
 
-// IPC: send plugin info to renderer
-function setupPluginIPC(plugins: LoadedPlugin[]): void {
-  const infoList = getPluginInfoList(plugins);
-
-  ipcMain.handle('plugins:list', () => infoList);
-
-  ipcMain.handle('plugins:getConfig', (_event, pluginId: string) => {
-    const plugin = plugins.find((p) => p.manifest.id === pluginId);
-    if (!plugin) return null;
-    const portMap: Record<string, number> = {
-      'agent-comm': 3421,
-      'agent-tasks': 3422,
-      'agent-knowledge': 3423,
-      'agent-discover': 3424,
-    };
-    const port = portMap[pluginId];
-    return port
-      ? {
-          baseUrl: `http://localhost:${port}`,
-          wsUrl: `localhost:${port}`,
-        }
-      : null;
-  });
+// Pure handler for the 'plugins:getConfig' channel — returns the dashboard
+// base URL for a given plugin id, or null if unknown. Both desktop and server
+// targets bind this directly to their router.
+export function getPluginConfig(
+  plugins: LoadedPlugin[],
+  pluginId: string,
+): { baseUrl: string; wsUrl: string } | null {
+  const plugin = plugins.find((p) => p.manifest.id === pluginId);
+  if (!plugin) return null;
+  const portMap: Record<string, number> = {
+    'agent-comm': 3421,
+    'agent-tasks': 3422,
+    'agent-knowledge': 3423,
+    'agent-discover': 3424,
+  };
+  const port = portMap[pluginId];
+  return port
+    ? {
+        baseUrl: `http://localhost:${port}`,
+        wsUrl: `localhost:${port}`,
+      }
+    : null;
 }
 
 export {
   discoverPlugins,
-  registerPluginProtocol,
-  initPlugins,
   destroyPlugins,
-  setupPluginIPC,
+  getPluginInfoList,
   LoadedPlugin,
   PluginManifest,
   PluginInfo,

@@ -1,0 +1,24 @@
+<!doctype html>
+<!--
+  @agent-desk/ui — WEB ENTRY PLACEHOLDER
+
+  This file is a stub. The real web entry (HTML + JS bootstrap) will be
+  populated in Phase D of the agent-desk dual-target refactor, when the
+  existing src/renderer/ content is moved into packages/ui/ and made
+  transport-agnostic (WebSocket for @agent-desk/server, Electron IPC for
+  @agent-desk/desktop).
+
+  @agent-desk/pwa (Phase F) imports `@agent-desk/ui/web` from its main.ts;
+  that module does not yet exist. Until Phase D lands, the PWA build will
+  fail at the import step — which is expected and tracked by the phased
+  refactor plan.
+-->
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Agent Desk UI (placeholder)</title>
+  </head>
+  <body>
+    <p>Placeholder — populated by Phase D.</p>
+  </body>
+</html>

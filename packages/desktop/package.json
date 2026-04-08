@@ -1,0 +1,8 @@
+{
+  "name": "@agent-desk/desktop",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Electron shell for agent-desk. Wraps @agent-desk/core with an IPC transport bridge plus desktop-only adapters (tray, dialog, autoUpdater).",
+  "type": "module",
+  "main": "dist/index.js"
+}

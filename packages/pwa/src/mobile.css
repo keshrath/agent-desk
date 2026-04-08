@@ -1,0 +1,66 @@
+/* Agent Desk PWA — touch-friendly overrides.
+ * Layered on top of the shared UI stylesheet; only tweaks things that need
+ * to differ between desktop Electron and mobile web. */
+
+:root {
+  --pwa-tab-min-height: 44px;
+  --pwa-terminal-font-size: 14px;
+}
+
+/* Tabs: make every tab surface at least 44px tall so it's a comfortable
+ * touch target (Apple HIG minimum). */
+.tab,
+.dockview-tab,
+[role='tab'] {
+  min-height: var(--pwa-tab-min-height);
+  display: flex;
+  align-items: center;
+}
+
+/* xterm.js: bump font size slightly on mobile for readability. */
+.xterm,
+.xterm .xterm-rows {
+  font-size: var(--pwa-terminal-font-size) !important;
+}
+
+/* Hide controls that only make sense on the desktop target. */
+[data-desktop-only] {
+  display: none !important;
+}
+
+/* Collapse the sidebar into a bottom nav on narrow viewports. */
+@media (max-width: 768px) {
+  .sidebar,
+  #sidebar,
+  [data-role='sidebar'] {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    top: auto;
+    width: 100%;
+    height: 56px;
+    flex-direction: row;
+    justify-content: space-around;
+    align-items: center;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    border-right: none;
+    z-index: 1000;
+    background: #21252b;
+  }
+
+  .sidebar .nav-item,
+  [data-role='sidebar'] .nav-item {
+    flex: 1;
+    min-height: var(--pwa-tab-min-height);
+    justify-content: center;
+  }
+
+  /* Reserve space at the bottom of the main content area so the bottom
+   * nav doesn't cover active content. */
+  .main,
+  #main,
+  [data-role='main'] {
+    padding-bottom: 56px;
+  }
+}

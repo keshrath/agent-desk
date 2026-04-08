@@ -7,11 +7,14 @@ hero:
   tagline: Manage terminals, monitor agents, and orchestrate multi-agent workflows from one app.
   actions:
     - theme: brand
+      text: Architecture
+      link: /architecture
+    - theme: alt
+      text: Deployment
+      link: /deployment
+    - theme: alt
       text: Get Started
       link: /guide/getting-started
-    - theme: alt
-      text: Download
-      link: https://github.com/keshrath/agent-desk/releases
     - theme: alt
       text: View on GitHub
       link: https://github.com/keshrath/agent-desk

@@ -1,0 +1,20 @@
+{
+  "name": "@agent-desk/pwa",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Progressive Web App entry for agent-desk. Read-only mobile monitoring surface served by @agent-desk/server.",
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@agent-desk/ui": "*"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0",
+    "vite": "^5.4.0"
+  }
+}

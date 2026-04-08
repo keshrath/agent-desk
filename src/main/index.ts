@@ -2,14 +2,37 @@ import { app, BrowserWindow, dialog, ipcMain, Tray, Menu, nativeImage, shell, No
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { createRequire } from 'module';
-import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, unlinkSync, writeFileSync, watch } from 'fs';
-import type { FSWatcher } from 'fs';
-import { homedir } from 'os';
-import { TerminalManager, HistoryEntry } from './terminal-manager.js';
-import { startMonitoring, stopMonitoring, getSystemStats, onStatsUpdate } from './system-monitor.js';
-import { setupCrashHandlers, writeCrashLog, hasRecentCrashLogs, CRASH_LOG_DIR } from './crash-reporter.js';
-import { autoConfigureMcpServers, detectInstalledTools } from './mcp-autoconfig.js';
-import { discoverPlugins, registerPluginProtocol, setupPluginIPC, type LoadedPlugin } from './plugin-system.js';
+import { existsSync, statSync } from 'fs';
+import {
+  TerminalManager,
+  type HistoryEntry,
+  startMonitoring,
+  stopMonitoring,
+  getSystemStats,
+  onStatsUpdate,
+  setAppVersion,
+  setupCrashHandlers,
+  writeCrashLog,
+  hasRecentCrashLogs,
+  CRASH_LOG_DIR,
+  autoConfigureMcpServers,
+  detectInstalledTools,
+  CONFIG_FILE,
+  readConfig,
+  writeConfig,
+  watchConfig,
+  type ConfigData,
+  readKeybindings,
+  writeKeybindings,
+  HistoryStore,
+  saveSession as coreSaveSession,
+  loadSession,
+  getSavedBuffer,
+  fileStat,
+  fileDirname,
+  fileWrite,
+} from '@agent-desk/core';
+import { discoverPlugins, registerPluginProtocol, setupPluginIPC, type LoadedPlugin } from './plugin-electron.js';
 
 // Native dashboard data access
 import { createContext as createCommContext, type AppContext as CommContext } from 'agent-comm/dist/lib.js';
@@ -24,6 +47,7 @@ import {
   getSessionSummary,
 } from 'agent-knowledge/dist/lib.js';
 
+setAppVersion(app.getVersion());
 setupCrashHandlers();
 
 const __filename = fileURLToPath(import.meta.url);
@@ -133,7 +157,7 @@ function startNativeDataPolling(): void {
 
 // Live reload in development — watches renderer files
 try {
-  require('electron-reload')(join(__dirname, '../../src/renderer'), {
+  require('electron-reload')(join(__dirname, '../../packages/ui/src/renderer'), {
     electron: join(__dirname, '../../node_modules/.bin/electron'),
   });
 } catch {
@@ -146,78 +170,13 @@ let saveInterval: ReturnType<typeof setInterval> | null = null;
 let trayTooltipInterval: ReturnType<typeof setInterval> | null = null;
 let isQuitting = false;
 let updateCheckInterval: ReturnType<typeof setInterval> | null = null;
-let configWatcher: FSWatcher | null = null;
 let loadedPlugins: LoadedPlugin[] = [];
 const terminalManager = new TerminalManager();
 
-// ---------------------------------------------------------------------------
-// Config File (~/.agent-desk/config.json) — F6
-// ---------------------------------------------------------------------------
-
-const CONFIG_DIR = join(homedir(), '.agent-desk');
-const CONFIG_FILE = join(CONFIG_DIR, 'config.json');
-
-interface ConfigData {
-  version: number;
-  settings: Record<string, unknown>;
-  profiles: Array<Record<string, unknown>>;
-  workspaces: Record<string, unknown>;
-}
-
-const DEFAULT_CONFIG: ConfigData = {
-  version: 1,
-  settings: {},
-  profiles: [],
-  workspaces: {},
-};
-
-function ensureConfigDir(): void {
-  if (!existsSync(CONFIG_DIR)) mkdirSync(CONFIG_DIR, { recursive: true });
-}
-
-function readConfig(): ConfigData {
-  ensureConfigDir();
-  if (!existsSync(CONFIG_FILE)) {
-    writeFileSync(CONFIG_FILE, JSON.stringify(DEFAULT_CONFIG, null, 2), 'utf-8');
-    return { ...DEFAULT_CONFIG };
-  }
-  try {
-    const raw = readFileSync(CONFIG_FILE, 'utf-8');
-    const parsed = JSON.parse(raw);
-    return { ...DEFAULT_CONFIG, ...parsed };
-  } catch {
-    return { ...DEFAULT_CONFIG };
-  }
-}
-
-function writeConfig(data: ConfigData): void {
-  ensureConfigDir();
-  writeFileSync(CONFIG_FILE, JSON.stringify(data, null, 2), 'utf-8');
-}
-
-let _configWriteInProgress = false;
-
-function watchConfig(): void {
-  if (configWatcher) return;
-  ensureConfigDir();
-  if (!existsSync(CONFIG_FILE)) {
-    writeFileSync(CONFIG_FILE, JSON.stringify(DEFAULT_CONFIG, null, 2), 'utf-8');
-  }
-  try {
-    configWatcher = watch(CONFIG_FILE, { persistent: false }, (eventType) => {
-      if (eventType === 'change' && !_configWriteInProgress && mainWindow) {
-        try {
-          const data = readConfig();
-          mainWindow.webContents.send('config:changed', data);
-        } catch {
-          // file may be mid-write
-        }
-      }
-    });
-  } catch {
-    // watch not supported on this platform/fs
-  }
-}
+// Config file (~/.agent-desk/config.json) is now provided by @agent-desk/core.
+// We keep a local stop-fn so we can dispose the watcher on quit.
+let stopConfigWatcher: (() => void) | null = null;
+const historyStore = new HistoryStore();
 
 // ---------------------------------------------------------------------------
 // CLI Launch Args & Single Instance
@@ -280,106 +239,14 @@ if (!gotLock) {
   });
 }
 
-// Session persistence
-const SESSION_DIR = join(homedir(), '.agent-desk');
-const SESSION_FILE = join(SESSION_DIR, 'sessions.json');
-const BUFFER_DIR = join(SESSION_DIR, 'buffers');
-
-interface SessionTerminalData {
-  id: string;
-  command: string;
-  args: string[];
-  cwd: string;
-  env?: Record<string, string>;
-  title: string;
-  createdAt: string;
-  status: string;
-  exitCode?: number | null;
-  agentName?: string | null;
-  profileName?: string | null;
-}
-
-interface SessionData {
-  version?: number;
-  savedAt?: string;
-  terminals: SessionTerminalData[];
-  activeTerminalId?: string;
-  windowBounds?: { x: number; y: number; width: number; height: number };
-  activeView?: string;
-  layout?: unknown;
-}
-
-function ensureSessionDir(): void {
-  if (!existsSync(SESSION_DIR)) mkdirSync(SESSION_DIR, { recursive: true });
-  if (!existsSync(BUFFER_DIR)) mkdirSync(BUFFER_DIR, { recursive: true });
-}
-
-// Layout state saved from renderer via IPC
+// Session persistence is provided by @agent-desk/core. The desktop shell
+// owns the renderer-saved layout (it lives in this process across saves).
 let _savedLayout: unknown = null;
-
 function saveSession(): void {
-  try {
-    ensureSessionDir();
-    const allTerminals = terminalManager.list();
-    const runningTerminals = allTerminals.filter((t) => t.status === 'running');
-    const terminals: SessionTerminalData[] = runningTerminals.map((t) => ({
-      id: t.id,
-      command: t.command,
-      args: t.args,
-      cwd: t.cwd,
-      title: t.title,
-      createdAt: t.createdAt,
-      status: t.status,
-      exitCode: t.exitCode,
-      agentName: t.agentName,
-      profileName: t.profileName,
-    }));
-
-    const bounds = mainWindow?.getBounds();
-    const session: SessionData = {
-      version: 2,
-      savedAt: new Date().toISOString(),
-      terminals,
-      windowBounds: bounds,
-      layout: _savedLayout,
-    };
-
-    writeFileSync(SESSION_FILE, JSON.stringify(session, null, 2));
-
-    // Save output buffers for running terminals only
-    const activeIds = new Set(runningTerminals.map((t) => t.id));
-    for (const t of runningTerminals) {
-      const buffer = terminalManager.getBuffer(t.id);
-      if (buffer) {
-        const bufContent = buffer.length > 100_000 ? buffer.slice(-100_000) : buffer;
-        writeFileSync(join(BUFFER_DIR, `${t.id}.buf`), bufContent, 'utf-8');
-      }
-    }
-
-    // Clean up stale buffer files
-    try {
-      const bufFiles = readdirSync(BUFFER_DIR);
-      for (const f of bufFiles) {
-        const id = f.replace(/\.buf$/, '');
-        if (!activeIds.has(id)) {
-          unlinkSync(join(BUFFER_DIR, f));
-        }
-      }
-    } catch {
-      /* buffer dir may not exist */
-    }
-  } catch (err) {
-    console.error('Failed to save session:', err);
-  }
-}
-
-function loadSession(): SessionData | null {
-  if (!existsSync(SESSION_FILE)) return null;
-  try {
-    return JSON.parse(readFileSync(SESSION_FILE, 'utf-8'));
-  } catch {
-    return null;
-  }
+  coreSaveSession(terminalManager, {
+    windowBounds: mainWindow?.getBounds(),
+    layout: _savedLayout,
+  });
 }
 
 function createWindow(): BrowserWindow {
@@ -406,7 +273,7 @@ function createWindow(): BrowserWindow {
     },
   });
 
-  win.loadFile(join(__dirname, '../../src/renderer/index.html'));
+  win.loadFile(join(__dirname, '../../packages/ui/src/renderer/index.html'));
 
   let trayNotified = false;
   win.on('close', (e) => {
@@ -554,36 +421,14 @@ function setupIPC(): void {
   // Session persistence
   ipcMain.handle('session:save', () => saveSession());
   ipcMain.handle('session:load', () => loadSession());
-  ipcMain.handle('session:getBuffer', (_e, id: string) => {
-    const safeId = id.replace(/[^a-zA-Z0-9-]/g, '');
-    if (!safeId) return null;
-    const bufFile = join(BUFFER_DIR, `${safeId}.buf`);
-    if (existsSync(bufFile)) {
-      try {
-        return readFileSync(bufFile, 'utf-8');
-      } catch {
-        return null;
-      }
-    }
-    return null;
-  });
+  ipcMain.handle('session:getBuffer', (_e, id: string) => getSavedBuffer(id));
 
   ipcMain.handle('session:autoSave', () => {
     saveSession();
     return true;
   });
 
-  ipcMain.handle('session:replayBuffer', (_e, id: string) => {
-    const safeId = id.replace(/[^a-zA-Z0-9-]/g, '');
-    if (!safeId) return null;
-    const bufFile = join(BUFFER_DIR, `${safeId}.buf`);
-    if (!existsSync(bufFile)) return null;
-    try {
-      return readFileSync(bufFile, 'utf-8');
-    } catch {
-      return null;
-    }
-  });
+  ipcMain.handle('session:replayBuffer', (_e, id: string) => getSavedBuffer(id));
 
   ipcMain.handle('session:setAgentInfo', (_e, id: string, agentName: string | null, profileName: string | null) => {
     return terminalManager.setAgentInfo(id, agentName, profileName);
@@ -647,22 +492,11 @@ function setupIPC(): void {
       throw new Error('File write denied: path not approved via save dialog');
     }
     approvedWritePaths.delete(filePath);
-    writeFileSync(filePath, content, 'utf-8');
-    return true;
+    return fileWrite(filePath, content);
   });
 
-  ipcMain.handle('file:stat', (_e, filePath: string) => {
-    try {
-      const s = statSync(filePath);
-      return { isDirectory: s.isDirectory(), isFile: s.isFile(), size: s.size };
-    } catch {
-      return null;
-    }
-  });
-
-  ipcMain.handle('file:dirname', (_e, filePath: string) => {
-    return dirname(filePath);
-  });
+  ipcMain.handle('file:stat', (_e, filePath: string) => fileStat(filePath));
+  ipcMain.handle('file:dirname', (_e, filePath: string) => fileDirname(filePath));
 
   // Pop-out terminal into its own window
   ipcMain.handle('terminal:popout', (_e, opts: { terminalId: string; title: string; cols?: number; rows?: number }) => {
@@ -682,7 +516,7 @@ function setupIPC(): void {
     });
     const termId = encodeURIComponent(opts.terminalId);
     const title = encodeURIComponent(opts.title || 'Terminal');
-    popWin.loadFile(join(__dirname, '../../src/renderer/popout.html'), {
+    popWin.loadFile(join(__dirname, '../../packages/ui/src/renderer/popout.html'), {
       query: { terminalId: termId, title: title },
     });
     terminalManager.subscribe(opts.terminalId, {
@@ -704,40 +538,14 @@ function setupIPC(): void {
     return { windowId: popWin.id };
   });
 
-  // Config file management (F6)
+  // Config file management (F6) — backed by @agent-desk/core
   ipcMain.handle('config:read', () => readConfig());
-  ipcMain.handle('config:write', (_e, data: ConfigData) => {
-    _configWriteInProgress = true;
-    try {
-      writeConfig(data);
-    } finally {
-      setTimeout(() => {
-        _configWriteInProgress = false;
-      }, 100);
-    }
-  });
+  ipcMain.handle('config:write', (_e, data: ConfigData) => writeConfig(data));
   ipcMain.handle('config:getPath', () => CONFIG_FILE);
 
-  // Keybindings persistence (F5)
-  const KEYBINDINGS_FILE = join(SESSION_DIR, 'keybindings.json');
-
-  ipcMain.handle('keybindings:read', () => {
-    ensureSessionDir();
-    if (existsSync(KEYBINDINGS_FILE)) {
-      try {
-        return JSON.parse(readFileSync(KEYBINDINGS_FILE, 'utf-8'));
-      } catch {
-        return {};
-      }
-    }
-    return {};
-  });
-
-  ipcMain.handle('keybindings:write', (_e, data: Record<string, string | null>) => {
-    ensureSessionDir();
-    writeFileSync(KEYBINDINGS_FILE, JSON.stringify(data, null, 2), 'utf-8');
-    return true;
-  });
+  // Keybindings persistence (F5) — backed by @agent-desk/core
+  ipcMain.handle('keybindings:read', () => readKeybindings());
+  ipcMain.handle('keybindings:write', (_e, data: Record<string, string | null>) => writeKeybindings(data));
 
   // Open path in system file manager
   ipcMain.on('shell:openPath', (_e, dirPath: string) => {
@@ -764,20 +572,13 @@ function setupIPC(): void {
     }
   });
 
-  // --- Command History (F13) ---
-  ipcMain.handle('history:get', (_e, limit?: number, search?: string) => {
-    return getHistory(limit, search);
-  });
-
-  ipcMain.handle('history:clear', () => {
-    commandHistory = [];
-    saveHistory();
-    return true;
-  });
+  // --- Command History (F13) — backed by @agent-desk/core HistoryStore ---
+  ipcMain.handle('history:get', (_e, limit?: number, search?: string) => historyStore.get(limit, search));
+  ipcMain.handle('history:clear', () => historyStore.clear());
 
   // Listen for history entries from terminal manager
   terminalManager.onHistoryEntry((entry: HistoryEntry) => {
-    addHistoryEntry(entry);
+    historyStore.add(entry);
     // Notify renderer of new history entry
     if (mainWindow) {
       try {
@@ -1017,64 +818,8 @@ function setupIPC(): void {
   ipcMain.handle('mcp:auto-configure', () => autoConfigureMcpServers());
 }
 
-// ---------------------------------------------------------------------------
-// Command History Persistence (F13)
-// ---------------------------------------------------------------------------
-
-const HISTORY_FILE = join(SESSION_DIR, 'history.json');
-const HISTORY_MAX = 10_000;
-
-let commandHistory: HistoryEntry[] = [];
-let historySaveTimer: ReturnType<typeof setTimeout> | null = null;
-
-function loadHistory(): void {
-  if (!existsSync(HISTORY_FILE)) return;
-  try {
-    commandHistory = JSON.parse(readFileSync(HISTORY_FILE, 'utf-8'));
-    if (!Array.isArray(commandHistory)) commandHistory = [];
-    // Trim to max
-    if (commandHistory.length > HISTORY_MAX) {
-      commandHistory = commandHistory.slice(-HISTORY_MAX);
-    }
-  } catch {
-    commandHistory = [];
-  }
-}
-
-function saveHistory(): void {
-  ensureSessionDir();
-  try {
-    writeFileSync(HISTORY_FILE, JSON.stringify(commandHistory), 'utf-8');
-  } catch (err) {
-    console.error('Failed to save history:', err);
-  }
-}
-
-function debouncedSaveHistory(): void {
-  if (historySaveTimer) clearTimeout(historySaveTimer);
-  historySaveTimer = setTimeout(saveHistory, 2000);
-}
-
-function addHistoryEntry(entry: HistoryEntry): void {
-  commandHistory.push(entry);
-  if (commandHistory.length > HISTORY_MAX) {
-    commandHistory = commandHistory.slice(-HISTORY_MAX);
-  }
-  debouncedSaveHistory();
-}
-
-function getHistory(limit?: number, search?: string): HistoryEntry[] {
-  let results = commandHistory;
-  if (search) {
-    const q = search.toLowerCase();
-    results = results.filter((e) => e.command.toLowerCase().includes(q));
-  }
-  const reversed = results.slice().reverse();
-  if (limit && limit > 0) {
-    return reversed.slice(0, limit);
-  }
-  return reversed;
-}
+// History persistence is now provided by @agent-desk/core HistoryStore
+// (instantiated as `historyStore` near the top of this file).
 
 // ---------------------------------------------------------------------------
 // Auto-Updater (electron-updater)
@@ -1143,10 +888,10 @@ function sendUpdateStatus(type: string, message: string): void {
 }
 
 app.whenReady().then(async () => {
-  loadHistory();
+  historyStore.load();
   initNativeContexts();
 
-  loadedPlugins = discoverPlugins();
+  loadedPlugins = discoverPlugins(join(__dirname, '..', '..', 'node_modules'));
   setupPluginIPC(loadedPlugins);
   if (loadedPlugins.length > 0) {
     registerPluginProtocol(loadedPlugins);
@@ -1155,7 +900,9 @@ app.whenReady().then(async () => {
   setupIPC();
   mainWindow = createWindow();
   createTray();
-  watchConfig();
+  stopConfigWatcher = watchConfig((data) => {
+    mainWindow?.webContents.send('config:changed', data);
+  });
   startNativeDataPolling();
 
   setupAutoUpdater();
@@ -1236,9 +983,9 @@ app.on('before-quit', () => {
     clearInterval(updateCheckInterval);
     updateCheckInterval = null;
   }
-  if (configWatcher) {
-    configWatcher.close();
-    configWatcher = null;
+  if (stopConfigWatcher) {
+    stopConfigWatcher();
+    stopConfigWatcher = null;
   }
   terminalManager.cleanup();
 });

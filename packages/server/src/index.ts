@@ -1,0 +1,137 @@
+// @agent-desk/server entry — boots Express + ws, wires core stores into the
+// shared router, and prints the loaded URL with token to stdout.
+//
+//   AGENT_DESK_PORT     port (default 3420)
+//   AGENT_DESK_BIND     bind addr (default 127.0.0.1)
+//   AGENT_DESK_TOKEN    auth token (default: random 24-byte hex)
+
+import { createServer } from 'http';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
+import express from 'express';
+import {
+  TerminalManager,
+  HistoryStore,
+  AgentBridges,
+  setupCrashHandlers,
+  setAppVersion,
+  startMonitoring,
+  onStatsUpdate,
+  watchConfig,
+  discoverPlugins,
+  type LoadedPlugin,
+} from '@agent-desk/core';
+import { TOKEN, checkExpressToken } from './auth.js';
+import { buildRequestHandlers, buildCommandHandlers } from './handlers.js';
+import { attachWsTransport } from './ws-transport.js';
+import { makePluginAssetHandler } from './plugin-routes.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+const PORT = parseInt(process.env.AGENT_DESK_PORT || '3420', 10);
+const BIND = process.env.AGENT_DESK_BIND || '127.0.0.1';
+
+setAppVersion(process.env.AGENT_DESK_VERSION || '0.0.0-server');
+setupCrashHandlers();
+
+// ---------------------------------------------------------------------------
+// Core wiring
+// ---------------------------------------------------------------------------
+
+const terminals = new TerminalManager();
+const history = new HistoryStore();
+history.load();
+terminals.onHistoryEntry((entry) => history.add(entry));
+
+const bridges = new AgentBridges();
+bridges.init();
+
+// Plugin discovery: server's node_modules sits at packages/server/node_modules
+// or the workspace root depending on hoisting. Walk up.
+const candidates = [
+  join(__dirname, '..', '..', '..', '..', 'node_modules'), // dist/src/index.js → repo root
+  join(__dirname, '..', '..', '..', 'node_modules'),
+  join(__dirname, '..', '..', 'node_modules'),
+];
+let plugins: LoadedPlugin[] = [];
+for (const dir of candidates) {
+  plugins = discoverPlugins(dir);
+  if (plugins.length > 0) break;
+}
+
+// ---------------------------------------------------------------------------
+// HTTP server (static UI + plugin assets + token gate)
+// ---------------------------------------------------------------------------
+
+const app = express();
+
+// Token middleware — protects all routes except /healthz
+app.use((req, res, next) => {
+  if (req.path === '/healthz') return next();
+  if (!checkExpressToken(req.query as Record<string, unknown>)) {
+    res.status(401).send('Unauthorized');
+    return;
+  }
+  next();
+});
+
+app.get('/healthz', (_req, res) => {
+  res.json({ ok: true, version: process.env.AGENT_DESK_VERSION || '0.0.0-server' });
+});
+
+// Static UI from packages/ui/src/renderer
+const uiRoot = join(__dirname, '..', '..', 'ui', 'src', 'renderer');
+app.use(express.static(uiRoot));
+
+// Plugin assets — replaces protocol.handle('plugin', …)
+app.get('/plugins/:id/*', makePluginAssetHandler(plugins));
+
+const httpServer = createServer(app);
+
+// ---------------------------------------------------------------------------
+// WebSocket transport
+// ---------------------------------------------------------------------------
+
+const ws = attachWsTransport({
+  http: httpServer,
+  terminals,
+  buildHandlers: () => ({
+    request: buildRequestHandlers({ terminals, history, bridges, plugins }),
+    command: buildCommandHandlers({ terminals, history, bridges, plugins }),
+  }),
+});
+
+// Wire core push events into the WS broadcast. The bridges polling loop
+// emits with a stringly-typed channel + single payload; we trust it.
+const emitAny = ws.emitToAll as unknown as (ch: string, ...args: unknown[]) => void;
+
+bridges.startPolling((channel, payload) => emitAny(channel, payload));
+watchConfig((data) => emitAny('config:changed', data));
+terminals.onHistoryEntry((entry) => emitAny('history:new', entry));
+
+startMonitoring();
+onStatsUpdate((stats) => emitAny('system:stats-update', stats));
+
+// ---------------------------------------------------------------------------
+// Bootstrap
+// ---------------------------------------------------------------------------
+
+httpServer.listen(PORT, BIND, () => {
+  const url = `http://${BIND === '0.0.0.0' ? 'localhost' : BIND}:${PORT}/?t=${TOKEN}`;
+  process.stdout.write(`\n  agent-desk server\n  ${url}\n\n`);
+  if (BIND === '0.0.0.0') {
+    process.stdout.write('  WARNING: bound to 0.0.0.0 — terminals exposed to network. Token required.\n\n');
+  }
+});
+
+function shutdown(): void {
+  process.stdout.write('shutting down...\n');
+  ws.close();
+  bridges.close();
+  terminals.cleanup();
+  httpServer.close(() => process.exit(0));
+}
+
+process.on('SIGINT', shutdown);
+process.on('SIGTERM', shutdown);

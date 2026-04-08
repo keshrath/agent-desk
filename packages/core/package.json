@@ -1,0 +1,19 @@
+{
+  "name": "@agent-desk/core",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Transport-agnostic core for agent-desk (terminals, sessions, config, agent bridges). No Electron, no Express.",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc"
+  },
+  "dependencies": {
+    "agent-comm": "^1.2.12",
+    "agent-discover": "^1.0.11",
+    "agent-knowledge": "^1.3.12",
+    "agent-tasks": "^1.9.10",
+    "node-pty": "^1.1.0"
+  }
+}

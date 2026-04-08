@@ -1,10 +1,17 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from 'fs';
 import { join } from 'path';
-import { homedir, platform } from 'os';
-import { app } from 'electron';
+import { platform } from 'os';
+import { userData } from './platform/paths.js';
 
-const CRASH_DIR = join(homedir(), '.agent-desk', 'crash-logs');
+const CRASH_DIR = userData('crash-logs');
 const MAX_CRASH_LOGS = 10;
+
+// Injected by the host (desktop sets this to app.getVersion()). Defaults to
+// 'unknown' so the server target works even if no host calls setAppVersion.
+let appVersion = 'unknown';
+export function setAppVersion(version: string): void {
+  appVersion = version;
+}
 
 function ensureCrashDir(): void {
   if (!existsSync(CRASH_DIR)) mkdirSync(CRASH_DIR, { recursive: true });
@@ -39,8 +46,8 @@ export function writeCrashLog(error: Error | string, source: 'main' | 'renderer'
     `=======================`,
     `Timestamp: ${new Date().toISOString()}`,
     `Source: ${source} process`,
-    `App Version: ${app.getVersion()}`,
-    `Electron: ${process.versions.electron}`,
+    `App Version: ${appVersion}`,
+    `Electron: ${process.versions.electron ?? 'n/a'}`,
     `Platform: ${platform()} ${process.arch}`,
     `Node: ${process.versions.node}`,
     `Memory: ${getMemoryUsage()}`,

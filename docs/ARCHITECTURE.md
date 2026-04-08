@@ -1,216 +1,129 @@
 # Architecture
 
-## System Overview
+agent-desk is a **dual-target** application: the same feature set ships as an Electron desktop app and as a Node web server with a PWA frontend. Both targets share a single transport-agnostic core package.
 
-Agent Desk is an Electron application with three process layers: main (Node.js), preload (context bridge), and renderer (browser). The main process manages terminal PTYs, system resources, and IPC. The renderer builds the UI with vanilla JavaScript and locally bundled vendor libraries.
+## Why dual-target
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                        Electron App                         │
-│                                                             │
-│  ┌──────────────────────────────────────────────────────┐   │
-│  │                   Renderer Process                    │   │
-│  │                                                       │   │
-│  │  ┌─────────┐ ┌──────────┐ ┌───────────┐ ┌────────┐  │   │
-│  │  │ Terminal │ │  Agent   │ │  Batch    │ │ Event  │  │   │
-│  │  │  Grid   │ │ Monitor  │ │ Launcher  │ │ Stream │  │   │
-│  │  │(dockview)│ │          │ │           │ │        │  │   │
-│  │  └────┬────┘ └────┬─────┘ └─────┬─────┘ └───┬────┘  │   │
-│  │       │           │             │            │        │   │
-│  │  ┌────┴───────────┴─────────────┴────────────┴────┐  │   │
-│  │  │              State + Event Bus                  │  │   │
-│  │  └────────────────────┬───────────────────────────┘  │   │
-│  │                       │                               │   │
-│  │  ┌────────────────────┴───────────────────────────┐  │   │
-│  │  │         window.agentDesk (Preload API)          │  │   │
-│  │  └────────────────────┬───────────────────────────┘  │   │
-│  └───────────────────────┼───────────────────────────────┘   │
-│                          │ IPC (contextBridge)               │
-│  ┌───────────────────────┼───────────────────────────────┐   │
-│  │                  Main Process                          │   │
-│  │                       │                                │   │
-│  │  ┌─────────┐ ┌───────┴──────┐ ┌──────────┐ ┌───────┐ │   │
-│  │  │Terminal  │ │   IPC        │ │  System  │ │ Crash │ │   │
-│  │  │Manager  │ │  Handlers    │ │ Monitor  │ │Report │ │   │
-│  │  │(node-pty)│ │              │ │          │ │       │ │   │
-│  │  └─────────┘ └──────────────┘ └──────────┘ └───────┘ │   │
-│  │                                                        │   │
-│  │  ┌──────────┐ ┌────────────┐ ┌───────────┐            │   │
-│  │  │  Tray    │ │  Config    │ │  Auto     │            │   │
-│  │  │  Menu    │ │  Watcher   │ │  Updater  │            │   │
-│  │  └──────────┘ └────────────┘ └───────────┘            │   │
-│  └────────────────────────────────────────────────────────┘   │
-│                                                             │
-│  ┌──────────────────────────────────────────────────────┐   │
-│  │      Embedded Plugin Views (shadow DOM)              │   │
-│  │  ┌────────┐ ┌────────┐ ┌──────────┐ ┌──────────┐    │   │
-│  │  │  comm  │ │ tasks  │ │knowledge │ │ discover │    │   │
-│  │  │ :3421  │ │ :3422  │ │  :3423   │ │  :3424   │    │   │
-│  │  └────────┘ └────────┘ └──────────┘ └──────────┘    │   │
-│  └──────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────┘
-```
+The desktop app is excellent for power users at their workstation, but AI agents run for hours or days and users want to check on them from a phone, tablet, or a different machine. Rather than maintaining two codebases, we extracted all business logic into `@agent-desk/core` — a Node library with no UI or Electron dependency — and put two thin shells on top:
 
-## Process Model
+- **Desktop** wraps core with Electron IPC for zero-latency local access and native OS features (tray, autoupdate, notifications).
+- **Server** exposes core over WebSocket, reusing the exact same channel contract. A mobile PWA connects over HTTPS.
 
-### Main Process (`src/main/`)
+The renderer (`@agent-desk/ui`) has no knowledge of which transport it is running on. It always calls `window.agentDesk.<bucket>.<method>()`; the preload (desktop) or WS client (PWA) is responsible for marshalling.
 
-TypeScript, compiled to `dist/main/`. Runs in Node.js with full system access.
+## Package responsibilities
 
-| File                  | Responsibility                                                      |
-| --------------------- | ------------------------------------------------------------------- |
-| `index.ts`            | App entry, BrowserWindow creation, tray menu, IPC handler registration, config file watcher, auto-update, dashboard health checks |
-| `terminal-manager.ts` | PTY lifecycle via node-pty: spawn, write, resize, kill, signal, buffer capture, history tracking |
-| `system-monitor.ts`   | CPU, RAM, and disk usage polling via `os` module                    |
-| `crash-reporter.ts`   | Structured crash log writer with memory snapshots, rotation (max 10)|
+| Package              | Runtime              | Depends on | Purpose                                                          |
+| -------------------- | -------------------- | ---------- | ---------------------------------------------------------------- |
+| `@agent-desk/core`   | Node                 | —          | All stores, terminal/pty, system monitor, plugin system, router  |
+| `@agent-desk/desktop`| Electron             | core, ui   | Main process, preload bridge, tray, autoupdater, file dialogs    |
+| `@agent-desk/ui`     | Browser (vanilla JS) | —          | Renderer: layout, terminals, views, commands, themes             |
+| `@agent-desk/server` | Node                 | core, ui   | Express + ws, token auth, plugin HTTP route, serves ui static    |
+| `@agent-desk/pwa`    | Browser              | —          | Mobile-optimized entry that connects to server over WS           |
 
-### Preload (`src/preload/`)
+Core is strict: **no `electron` imports, ever**. If a capability needs Electron (tray, autoupdate, native dialogs), it lives in `desktop/` and is stubbed in `server/`.
 
-TypeScript, compiled to `dist/preload/`. Runs in a sandboxed context between main and renderer.
+## Transport contract
 
-| File                | Responsibility                                                  |
-| ------------------- | --------------------------------------------------------------- |
-| `index.ts`          | Exposes `window.agentDesk` API via `contextBridge.exposeInMainWorld` -- terminal, session, config, dialog, keybindings, history, dashboard, system, app lifecycle |
-| `plugin-system.ts` (in `main/`) | Plugin discovery, `plugin://` protocol registration, `plugins:list` / `plugins:getConfig` IPC handlers — see Dashboard Integration below |
+The channel contract in `packages/core/src/transport/channels.ts` is the source of truth. Reference table (buckets and channels as of this writing):
 
-### Renderer (`src/renderer/`)
+### Request channels
 
-Vanilla JavaScript served directly from the source directory -- **not compiled**. Uses locally bundled vendor libraries (xterm.js, dockview-core) copied from `node_modules` at build time.
+| Bucket      | Channels                                                                                                        |
+| ----------- | --------------------------------------------------------------------------------------------------------------- |
+| terminal    | `create`, `write`, `resize`, `kill`, `signal`, `restart`, `list`                                                |
+| session     | `save`, `load`, `getBuffer`, `autoSave`, `replayBuffer`, `setAgentInfo`, `saveLayout`                           |
+| file        | `write`, `stat`, `dirname`                                                                                      |
+| config      | `read`, `write`, `getPath`                                                                                      |
+| keybindings | `read`, `write`                                                                                                 |
+| history     | `get`, `clear`                                                                                                  |
+| comm        | `state`, `agents`, `messages`, `channels`, `state-entries`, `feed`                                              |
+| tasks       | `state`, `list`, `get`, `search`                                                                                |
+| knowledge   | `entries`, `read`, `search`, `sessions`, `session`                                                              |
+| discover    | `state`, `servers`, `server`, `browse`, `activate`, `deactivate`, `delete`, `secrets`, `metrics`, `health`      |
+| system      | `stats`, `start-monitoring`, `stop-monitoring`                                                                  |
+| app         | `reportError`, `getCrashLogDir`                                                                                 |
+| mcp         | `detect-tools`, `auto-configure`                                                                                |
+| plugins     | `list`, `getConfig`                                                                                             |
 
-No frameworks (React, Vue, etc.). All UI is built with DOM APIs, event listeners, and CSS custom properties.
+### Command channels (fire-and-forget)
 
-## IPC Communication Flow
+`terminal:subscribe`, `terminal:unsubscribe`.
 
-All renderer-to-main communication goes through `contextBridge`. The preload script exposes a structured API under `window.agentDesk`:
+### Push channels (core → renderer)
+
+`terminal:data`, `terminal:exit`, `comm:update`, `tasks:update`, `knowledge:update`, `discover:update`, `config:changed`, `history:new`, `system:stats-update`.
+
+## Request flow
 
 ```
-Renderer                    Preload                     Main
-────────                    ───────                     ────
-agentDesk.terminal.create() → ipcRenderer.invoke()    → ipcMain.handle('terminal:create')
-                            ←                          ← returns terminal ID
-
-agentDesk.terminal.onData() → ipcRenderer.on()        ← ipcMain sends 'terminal:data'
-                              callback fires
+renderer (ui)
+   └─ window.agentDesk.terminal.write(id, data)
+        ├─ preload (desktop) ──ipcRenderer.invoke──▶ main process
+        │    or
+        └─ ws-client (pwa/web) ──JSON frame──▶ server ws handler
+             └─ router.dispatch('terminal:write', [id, data])
+                  └─ TerminalManager.write(id, data)
+                       └─ node-pty write
+                            ◀─ result ─┘
 ```
 
-### IPC Channels
+Both transports serialize the same `{ channel, args, id }` envelope and the router invokes the store method registered for that channel. The store returns a Promise; the result travels back on the same envelope id.
 
-| Namespace    | Examples                                              |
-| ------------ | ----------------------------------------------------- |
-| `terminal:`  | `create`, `write`, `resize`, `kill`, `signal`, `list` |
-| `session:`   | `save`, `load`, `getBuffer`, `replayBuffer`           |
-| `config:`    | `read`, `write`, `getPath`, `onChange`                 |
-| `window:`    | `minimize`, `maximize`, `close`, `flashFrame`          |
-| `dialog:`    | `saveFile`, `openDirectory`                            |
-| `dashboard:` | `getStatus`, `onStatusChanged`                         |
-| `system:`    | `getStats`, `startMonitoring`, `stopMonitoring`        |
-| `app:`       | `checkForUpdates`, `installUpdate`, `reportError`      |
-| `keybindings:` | `read`, `write`                                      |
-| `history:`   | `get`, `clear`, `onNew`                                |
-
-## Dashboard Integration
-
-Four external `agent-*` dashboards are embedded as **first-party plugins** loaded into per-view shadow roots — no `<webview>` tags, no iframes.
+## Push flow
 
 ```
-agent-comm     → http://localhost:3421   (Ctrl+2)
-agent-tasks    → http://localhost:3422   (Ctrl+3)
-agent-knowledge → http://localhost:3423  (Ctrl+4)
-agent-discover → http://localhost:3424   (Ctrl+5)
+TerminalManager
+   └─ pty 'data' event
+        └─ core EventEmitter.emit('terminal:data', id, data)
+             ├─ desktop main: BrowserWindow.webContents.send('terminal:data', ...)
+             │       └─ preload forwards to window.agentDesk.terminal.onData
+             └─ server: ws.send({ type: 'push', channel: 'terminal:data', args: [...] })
+                     └─ ws-client in pwa/web dispatches to registered listener
 ```
 
-### Plugin System
+Only subscribers (via `terminal:subscribe`) receive `terminal:data` for a given id — this keeps bandwidth bounded when 20 terminals are running but the user is viewing one.
 
-Each `agent-*` package ships an `agent-desk-plugin.json` manifest declaring its UI script bundle, CSS, and the runtime files the renderer must load. At app startup `src/main/plugin-system.ts`:
+## Adding a new feature — worked example
 
-1. **Discovers** plugins by scanning `node_modules/agent-*/agent-desk-plugin.json`.
-2. **Registers** the `plugin://` Electron protocol that serves each plugin's static assets.
-3. **Exposes** `plugins:list` and `plugins:getConfig` IPC handlers — `getConfig` returns each plugin's `baseUrl` (`http://localhost:<port>`) and `wsUrl` (`localhost:<port>`).
+Adding a "reload plugin" capability:
 
-The renderer (`src/renderer/plugin-loader.js`) sequentially loads each plugin's script URLs into the global scope, then calls `<global>.mount(container, options)` (e.g. `window.AC.mount`, `window.TaskBoard.mount`). Each plugin attaches a shadow root to its container and renders into it.
+1. **Contract**. Add to `RequestChannelMap` in `channels.ts`:
+   ```ts
+   'plugins:reload': { args: [pluginId: string]; result: { ok: boolean; error?: string } };
+   ```
+2. **Core store**. In `packages/core/src/plugin-system.ts` export `reloadPlugin(id)`. Register it in the router wiring where the other `plugins:*` channels are bound.
+3. **Desktop bridge**. In `packages/desktop/src/preload/index.ts`, add `plugins.reload: (id) => ipcRenderer.invoke('plugins:reload', id)`.
+4. **Server bridge**. Nothing to do — the WS router dispatches by channel name.
+5. **UI**. Wire a button in the plugin settings view to `await window.agentDesk.plugins.reload(id)`.
+6. **Test**. Unit-test `reloadPlugin` in core with a fake plugin directory. E2E the button via `playwright-electron` and `playwright-browser`.
 
-### Theme Sync
+## Threat model (web-only)
 
-Agent Desk owns the design tokens — accent, surface, text, borders, shadows. On theme change `syncThemeToPlugin(container)` walks the standard CSS variable contract (`bg`, `bg-surface`, `accent`, `accent-dim`, `text`, `text-muted`, …) and copies the resolved values from `:root` into the plugin's shadow root, so every plugin renders in the same theme as the host.
+The desktop target runs with the trust boundary at the OS user. The web target introduces new concerns:
 
-### Health Monitoring
+### Auth
 
-The main process runs HTTP health checks every 30 seconds against each dashboard URL. Results are pushed to the renderer, which updates sidebar status dots (green = healthy, red = unreachable).
+- **Single-user** by design. On first launch, the server generates a random 32-byte token, prints a URL like `http://127.0.0.1:8787/#t=<token>`, and persists it to `~/.agent-desk/server-token`.
+- The token is required on both the HTTP handshake (for `GET /` and `/plugins/*`) and the WS upgrade.
+- No multi-user, no roles, no login form.
 
-## Agent Detection Pipeline
+### Bind address
 
-The agent parser (`agent-parser.js`) processes terminal output in real time to detect Claude Code sessions:
+- Default bind: `127.0.0.1`. Non-loopback binds require an explicit `--bind` flag and a non-empty token file.
+- Refuse to start if bound to `0.0.0.0` without a token.
 
-```
-Terminal Output
-    │
-    ▼
-OSC Sequence Parser ──→ CWD tracking, command boundaries
-    │
-    ▼
-Agent Parser
-    ├── Tool call detection (Read, Write, Edit, Bash, Grep, Glob, etc.)
-    ├── File modification tracking
-    ├── Test result parsing (pass/fail counts)
-    ├── Error detection
-    └── Cost/token estimation
-    │
-    ▼
-Event Bus ──→ Agent Monitor, Event Stream, Status Bar, Tab Badges
-```
+### CORS / WS origin
 
-## Theme System
+- HTTP: `Access-Control-Allow-Origin` echoes only the configured public origin (or none for loopback).
+- WS upgrade: check `Origin` header against an allowlist. Drop on mismatch.
 
-Themes are implemented via CSS custom properties on the document root. The theme manager applies a set of ~40 CSS variables covering:
+### Terminal exposure
 
-- Background, surface, and border colors
-- Text colors (primary, secondary, muted)
-- Accent color and hover states
-- Terminal ANSI colors (16 colors)
-- Scrollbar, selection, and shadow colors
+- The server exposes real PTYs on the host. This is the highest-risk surface.
+- Mitigations: token auth on every WS frame, rate-limit `terminal:create`, optional env var `AGENT_DESK_SERVER_READONLY=1` which makes the router refuse any channel in a mutating allowlist (`terminal:create|write|kill|signal|restart`, `file:write`, `config:write`, `keybindings:write`, `discover:activate|deactivate|delete`). PWA v1 runs with this flag on.
 
-Built-in themes: Default Dark, Default Light, Dracula, Nord. Custom themes are stored in `localStorage`.
+### TLS
 
-Early theme application (`theme-init.js`) runs before the main app loads to prevent flash of unstyled content.
-
-## State Management
-
-The renderer uses a centralized state module (`state.js`) that holds:
-
-- Terminal map (ID to xterm instance + metadata)
-- Dockview grid instance
-- Active view (terminals, comm, tasks, knowledge, monitor, settings)
-- Agent registry (detected agents with status, tools, costs)
-
-The event bus (`event-bus.js`) provides pub/sub for decoupled communication between renderer modules:
-
-| Event Category | Examples                                              |
-| -------------- | ----------------------------------------------------- |
-| Terminal       | `terminal:created`, `terminal:closed`, `terminal:data`|
-| Agent          | `agent:detected`, `agent:tool-call`, `agent:error`    |
-| Status         | `status:changed`, `cost:updated`                      |
-| Chain          | `chain:triggered`, `chain:completed`                  |
-
-## File Structure
-
-```
-agent-desk/
-├── src/
-│   ├── main/                   TypeScript — Electron main process
-│   ├── preload/                TypeScript — context bridge
-│   └── renderer/               Vanilla JS — UI (not compiled)
-│       ├── vendor/             Local xterm.js + dockview-core (gitignored)
-│       └── dashboard-injectors/ Per-dashboard toolbar injection
-├── tests/
-│   ├── unit/                   vitest unit tests (4 suites)
-│   └── e2e/                    Playwright E2E tests (22 specs)
-├── scripts/
-│   └── copy-vendor.js          Copies vendor libs from node_modules
-├── resources/                  App icons (ico, png, svg)
-├── dist/                       Compiled TypeScript output (gitignored)
-├── release/                    Packaged binaries (gitignored)
-├── package.json                Dependencies and build config
-├── tsconfig.json               TypeScript configuration
-├── electron-builder.yaml       Packaging configuration (in package.json)
-└── vitest.config.ts            Test configuration
-```
+- The server speaks plain HTTP. For non-loopback deployments, terminate TLS at a reverse proxy (Caddy recommended — see `deployment.md`).
+- Never ship a mode that binds non-loopback over plain HTTP without an explicit `--insecure` flag.
