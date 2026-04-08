@@ -1,18 +1,29 @@
+# --- Dependencies & build output ---------------------------------------------
 node_modules/
 dist/
 src/renderer/vendor/
 release/
+output/
 *.js.map
 *.d.ts
+
+# --- Local data & secrets ----------------------------------------------------
 .env
-.DS_Store
-Thumbs.db
+
+# --- Test artifacts ----------------------------------------------------------
 test-results/
 test-screenshots/
 test-user-data*/
 playwright-report/
-output/
 recordings/
-_patch*.py
+
+# --- Docs build cache --------------------------------------------------------
 docs/.vitepress/cache/
 docs/.vitepress/dist/
+
+# --- Scratch / patch files ---------------------------------------------------
+_patch*.py
+
+# --- OS / editor cruft -------------------------------------------------------
+.DS_Store
+Thumbs.db
