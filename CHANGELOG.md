@@ -2,7 +2,7 @@
 
 All notable changes to Agent Desk are documented in this file.
 
-## [Unreleased] - 2026-04-08
+## [1.0.25] - 2026-04-08
 
 ### Added
 
