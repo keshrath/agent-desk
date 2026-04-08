@@ -7,14 +7,7 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import { pathToFileURL } from 'url';
 import { ipcMain, protocol, type BrowserWindow } from 'electron';
-import {
-  discoverPlugins as coreDiscoverPlugins,
-  destroyPlugins,
-  getPluginInfoList,
-  resolvePluginAsset,
-  getPluginConfig,
-  type LoadedPlugin,
-} from '@agent-desk/core';
+import { discoverPlugins as coreDiscoverPlugins, destroyPlugins, resolvePluginAsset, type LoadedPlugin } from '@agent-desk/core';
 
 export type { LoadedPlugin } from '@agent-desk/core';
 
@@ -59,11 +52,11 @@ export async function initPlugins(plugins: LoadedPlugin[], mainWindow: BrowserWi
   }
 }
 
-/** Register the plugins:* IPC handlers using core's pure functions. */
-export function setupPluginIPC(plugins: LoadedPlugin[]): void {
-  const infoList = getPluginInfoList(plugins);
-  ipcMain.handle('plugins:list', () => infoList);
-  ipcMain.handle('plugins:getConfig', (_event, pluginId: string) => getPluginConfig(plugins, pluginId));
-}
+// NOTE: plugins:list / plugins:getConfig used to be registered here directly,
+// but the Phase C migration (v1.2.0) moved them into createRouter() via
+// buildDefaultRequestHandlers in @agent-desk/core/handlers-default.ts. The
+// double registration crashed Electron at startup with
+//   "Attempted to register a second handler for 'plugins:list'"
+// Caught by the v1.5.x electron e2e smoke test that actually launched the app.
 
 export { destroyPlugins };

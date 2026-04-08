@@ -24,7 +24,7 @@ import {
 import { mountIpcBridge } from './ipc-bridge.js';
 import { buildDesktopRequestHandlers, buildDesktopCommandHandlers } from './desktop-handlers.js';
 import { mountElectronHandlers } from './electron-handlers.js';
-import { discoverPlugins, registerPluginProtocol, setupPluginIPC, type LoadedPlugin } from './plugin-electron.js';
+import { discoverPlugins, registerPluginProtocol, type LoadedPlugin } from './plugin-electron.js';
 
 setAppVersion(app.getVersion());
 setupCrashHandlers();
@@ -368,7 +368,8 @@ app.whenReady().then(async () => {
   bridges.init();
 
   loadedPlugins = discoverPlugins(join(__dirname, '..', '..', '..', '..', 'node_modules'));
-  setupPluginIPC(loadedPlugins);
+  // plugins:list / plugins:getConfig are now registered via createRouter() →
+  // mountIpcBridge → buildDefaultRequestHandlers. Don't double-register them.
   if (loadedPlugins.length > 0) {
     registerPluginProtocol(loadedPlugins);
   }
