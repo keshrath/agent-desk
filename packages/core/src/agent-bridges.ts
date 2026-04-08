@@ -37,26 +37,40 @@ export const knowledge = {
 };
 
 export class AgentBridges {
-  commCtx: CommContext | null = null;
-  tasksCtx: TasksContext | null = null;
-  discoverCtx: DiscoverContext | null = null;
-  private intervals: ReturnType<typeof setInterval>[] = [];
+  // Backing fields are private; readonly accessors below give callers
+  // immutable references to the live contexts. This prevents handler code
+  // from accidentally nulling them out (which a real bug from v1.1.0
+  // demonstrated was easy to do).
+  #commCtx: CommContext | null = null;
+  #tasksCtx: TasksContext | null = null;
+  #discoverCtx: DiscoverContext | null = null;
+  #intervals: ReturnType<typeof setInterval>[] = [];
+
+  get commCtx(): CommContext | null {
+    return this.#commCtx;
+  }
+  get tasksCtx(): TasksContext | null {
+    return this.#tasksCtx;
+  }
+  get discoverCtx(): DiscoverContext | null {
+    return this.#discoverCtx;
+  }
 
   init(): void {
     try {
-      this.commCtx = createCommContext();
+      this.#commCtx = createCommContext();
       process.stderr.write('[agent-desk] native comm context initialized\n');
     } catch (err) {
       process.stderr.write(`[agent-desk] comm context failed: ${err}\n`);
     }
     try {
-      this.tasksCtx = createTasksContext();
+      this.#tasksCtx = createTasksContext();
       process.stderr.write('[agent-desk] native tasks context initialized\n');
     } catch (err) {
       process.stderr.write(`[agent-desk] tasks context failed: ${err}\n`);
     }
     try {
-      this.discoverCtx = createDiscoverContext();
+      this.#discoverCtx = createDiscoverContext();
       process.stderr.write('[agent-desk] native discover context initialized\n');
     } catch (err) {
       process.stderr.write(`[agent-desk] discover context failed: ${err}\n`);
@@ -64,19 +78,19 @@ export class AgentBridges {
   }
 
   close(): void {
-    for (const iv of this.intervals) clearInterval(iv);
-    this.intervals = [];
-    this.commCtx?.close();
-    this.commCtx = null;
-    this.tasksCtx?.close();
-    this.tasksCtx = null;
-    this.discoverCtx?.close();
-    this.discoverCtx = null;
+    for (const iv of this.#intervals) clearInterval(iv);
+    this.#intervals = [];
+    this.#commCtx?.close();
+    this.#commCtx = null;
+    this.#tasksCtx?.close();
+    this.#tasksCtx = null;
+    this.#discoverCtx?.close();
+    this.#discoverCtx = null;
   }
 
   /** Start polling loops that push update events through `emit`. */
   startPolling(emit: EmitFn): void {
-    this.intervals.push(
+    this.#intervals.push(
       setInterval(() => {
         if (!this.commCtx) return;
         try {
@@ -93,7 +107,7 @@ export class AgentBridges {
       }, 2000),
     );
 
-    this.intervals.push(
+    this.#intervals.push(
       setInterval(() => {
         if (!this.tasksCtx) return;
         try {
@@ -104,7 +118,7 @@ export class AgentBridges {
       }, 2000),
     );
 
-    this.intervals.push(
+    this.#intervals.push(
       setInterval(() => {
         try {
           const config = getKnowledgeConfig();
@@ -116,7 +130,7 @@ export class AgentBridges {
       }, 5000),
     );
 
-    this.intervals.push(
+    this.#intervals.push(
       setInterval(() => {
         if (!this.discoverCtx) return;
         try {

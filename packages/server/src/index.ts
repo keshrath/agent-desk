@@ -31,6 +31,7 @@ const __dirname = dirname(__filename);
 
 const PORT = parseInt(process.env.AGENT_DESK_PORT || '3420', 10);
 const BIND = process.env.AGENT_DESK_BIND || '127.0.0.1';
+const READ_ONLY = process.env.AGENT_DESK_SERVER_READONLY === '1' || process.argv.includes('--readonly');
 
 setAppVersion(process.env.AGENT_DESK_VERSION || '0.0.0-server');
 setupCrashHandlers();
@@ -100,8 +101,8 @@ const ws = attachWsTransport({
   http: httpServer,
   terminals,
   buildHandlers: () => ({
-    request: buildRequestHandlers({ terminals, history, bridges, plugins }),
-    command: buildCommandHandlers({ terminals, history, bridges, plugins }),
+    request: buildRequestHandlers({ terminals, history, bridges, plugins }, { readOnly: READ_ONLY }),
+    command: buildCommandHandlers({ terminals, history, bridges, plugins }, { readOnly: READ_ONLY }),
   }),
 });
 
@@ -122,9 +123,13 @@ onStatsUpdate((stats) => emitAny('system:stats-update', stats));
 
 httpServer.listen(PORT, BIND, () => {
   const url = `http://${BIND === '0.0.0.0' ? 'localhost' : BIND}:${PORT}/?t=${TOKEN}`;
-  process.stdout.write(`\n  agent-desk server\n  ${url}\n\n`);
+  const mode = READ_ONLY ? ' (READ-ONLY)' : '';
+  process.stdout.write(`\n  agent-desk server${mode}\n  ${url}\n\n`);
   if (BIND === '0.0.0.0') {
     process.stdout.write('  WARNING: bound to 0.0.0.0 — terminals exposed to network. Token required.\n\n');
+  }
+  if (READ_ONLY) {
+    process.stdout.write('  READ-ONLY mode: mutating channels blocked at the router.\n\n');
   }
 });
 
