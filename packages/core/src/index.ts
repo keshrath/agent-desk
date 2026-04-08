@@ -63,6 +63,9 @@ export type { FileStat } from './file-ops.js';
 export { AgentBridges, knowledge as knowledgeBridge } from './agent-bridges.js';
 export type { EmitFn } from './agent-bridges.js';
 
+export { buildDefaultRequestHandlers, buildDefaultCommandHandlers } from './handlers-default.js';
+export type { BuildHandlersDeps } from './handlers-default.js';
+
 export {
   discoverPlugins,
   destroyPlugins,

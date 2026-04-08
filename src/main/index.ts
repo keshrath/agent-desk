@@ -8,44 +8,26 @@ import {
   type HistoryEntry,
   startMonitoring,
   stopMonitoring,
-  getSystemStats,
   onStatsUpdate,
   setAppVersion,
   setupCrashHandlers,
-  writeCrashLog,
   hasRecentCrashLogs,
-  CRASH_LOG_DIR,
-  autoConfigureMcpServers,
-  detectInstalledTools,
-  CONFIG_FILE,
-  readConfig,
-  writeConfig,
   watchConfig,
-  type ConfigData,
-  readKeybindings,
-  writeKeybindings,
   HistoryStore,
   saveSession as coreSaveSession,
   loadSession,
-  getSavedBuffer,
-  fileStat,
-  fileDirname,
   fileWrite,
+  getSystemStats,
+  AgentBridges,
+  createRouter,
+  buildDefaultRequestHandlers,
+  buildDefaultCommandHandlers,
+  type RequestHandlers,
+  type CommandHandlers,
+  type PushChannel,
 } from '@agent-desk/core';
+import { mountIpcBridge } from './ipc-bridge.js';
 import { discoverPlugins, registerPluginProtocol, setupPluginIPC, type LoadedPlugin } from './plugin-electron.js';
-
-// Native dashboard data access
-import { createContext as createCommContext, type AppContext as CommContext } from 'agent-comm/dist/lib.js';
-import { createContext as createTasksContext, type AppContext as TasksContext } from 'agent-tasks/dist/lib.js';
-import { createContext as createDiscoverContext, type AppContext as DiscoverContext } from 'agent-discover/dist/lib.js';
-import {
-  getConfig as getKnowledgeConfig,
-  listEntries,
-  readEntry,
-  searchKnowledge,
-  listSessions,
-  getSessionSummary,
-} from 'agent-knowledge/dist/lib.js';
 
 setAppVersion(app.getVersion());
 setupCrashHandlers();
@@ -54,106 +36,10 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const require = createRequire(import.meta.url);
 
-// ---------------------------------------------------------------------------
-// Native dashboard contexts (lazy-initialized)
-// ---------------------------------------------------------------------------
-
-let commCtx: CommContext | null = null;
-let tasksCtx: TasksContext | null = null;
-let discoverCtx: DiscoverContext | null = null;
-
-let nativeDataIntervals: ReturnType<typeof setInterval>[] = [];
-
-function initNativeContexts(): void {
-  try {
-    commCtx = createCommContext();
-    process.stderr.write('[agent-desk] native comm context initialized\n');
-  } catch (err) {
-    process.stderr.write(`[agent-desk] comm context failed: ${err}\n`);
-  }
-  try {
-    tasksCtx = createTasksContext();
-    process.stderr.write('[agent-desk] native tasks context initialized\n');
-  } catch (err) {
-    process.stderr.write(`[agent-desk] tasks context failed: ${err}\n`);
-  }
-  try {
-    discoverCtx = createDiscoverContext();
-    process.stderr.write('[agent-desk] native discover context initialized\n');
-  } catch (err) {
-    process.stderr.write(`[agent-desk] discover context failed: ${err}\n`);
-  }
-}
-
-function closeNativeContexts(): void {
-  for (const iv of nativeDataIntervals) clearInterval(iv);
-  nativeDataIntervals = [];
-  commCtx?.close();
-  commCtx = null;
-  tasksCtx?.close();
-  tasksCtx = null;
-  discoverCtx?.close();
-  discoverCtx = null;
-}
-
-function startNativeDataPolling(): void {
-  // Comm polling — every 2s
-  nativeDataIntervals.push(
-    setInterval(() => {
-      if (!mainWindow || !commCtx) return;
-      try {
-        const agents = commCtx.agents.list();
-        const channels = commCtx.channels.list();
-        const messages = commCtx.messages.list({ limit: 100 });
-        const stateEntries = commCtx.state.list();
-        const feed = commCtx.feed.recent(100);
-        mainWindow.webContents.send('comm:update', { agents, channels, messages, state: stateEntries, feed });
-      } catch {
-        /* context may be closing */
-      }
-    }, 2000),
-  );
-
-  // Tasks polling — every 2s
-  nativeDataIntervals.push(
-    setInterval(() => {
-      if (!mainWindow || !tasksCtx) return;
-      try {
-        const tasks = tasksCtx.tasks.list({});
-        mainWindow.webContents.send('tasks:update', { tasks });
-      } catch {
-        /* context may be closing */
-      }
-    }, 2000),
-  );
-
-  // Knowledge polling — every 5s
-  nativeDataIntervals.push(
-    setInterval(() => {
-      if (!mainWindow) return;
-      try {
-        const config = getKnowledgeConfig();
-        const entries = listEntries(config.memoryDir);
-        mainWindow.webContents.send('knowledge:update', { entries });
-      } catch {
-        /* knowledge dir may not exist */
-      }
-    }, 5000),
-  );
-
-  // Discover polling — every 2s
-  nativeDataIntervals.push(
-    setInterval(() => {
-      if (!mainWindow || !discoverCtx) return;
-      try {
-        const servers = discoverCtx.registry.list();
-        mainWindow.webContents.send('discover:update', { servers });
-      } catch {
-        /* context may be closing */
-      }
-    }, 2000),
-  );
-}
+// All four agent SDK contexts + their polling loops live in @agent-desk/core
+// AgentBridges. The desktop bootstrap instantiates one and wires its push
+// emissions through the router into mainWindow.webContents.send.
+const bridges = new AgentBridges();
 
 // Live reload in development — watches renderer files
 try {
@@ -334,78 +220,136 @@ function createTray(): void {
   tray.on('double-click', () => mainWindow?.show());
 }
 
+// Track approved file:write paths (set by dialog:saveFile, consumed by file:write)
+const approvedWritePaths = new Set<string>();
+
+let unmountIpcBridge: (() => void) | null = null;
+
 function setupIPC(): void {
-  // Terminal management
-  ipcMain.handle(
-    'terminal:create',
-    (
-      _e,
-      opts: {
-        cwd?: string;
-        command?: string;
-        args?: string[];
-        cols?: number;
-        rows?: number;
-        env?: Record<string, string>;
-      },
-    ) => {
+  // ---------------------------------------------------------------------------
+  // Router-based handlers — every channel in the @agent-desk/core contract
+  // is wired through createRouter() + mountIpcBridge. This is the same
+  // dispatch path the @agent-desk/server WS transport uses, so the desktop
+  // and the web target share their handler bodies.
+  // ---------------------------------------------------------------------------
+
+  const requestHandlers: RequestHandlers = {
+    ...buildDefaultRequestHandlers({
+      terminals: terminalManager,
+      history: historyStore,
+      bridges,
+      plugins: loadedPlugins,
+    }),
+
+    // Desktop overrides — inject window bounds + saved layout into session save,
+    // and enforce the dialog:saveFile approval set on file:write.
+    'session:save': () => {
+      coreSaveSession(terminalManager, {
+        windowBounds: mainWindow?.getBounds(),
+        layout: _savedLayout,
+      });
+    },
+    'session:autoSave': () => {
+      coreSaveSession(terminalManager, {
+        windowBounds: mainWindow?.getBounds(),
+        layout: _savedLayout,
+      });
+    },
+    'session:saveLayout': (layout: unknown) => {
+      _savedLayout = layout;
+      return true;
+    },
+    'file:write': (filePath: string, content: string) => {
+      if (!approvedWritePaths.has(filePath)) {
+        return { ok: false, error: 'File write denied: path not approved via save dialog' };
+      }
+      approvedWritePaths.delete(filePath);
+      try {
+        fileWrite(filePath, content);
+        return { ok: true };
+      } catch (err) {
+        return { ok: false, error: String(err) };
+      }
+    },
+    'terminal:create': (opts) => {
       try {
         const term = terminalManager.spawn(opts.cwd, opts.command, opts.args, opts.cols, opts.rows, opts.env);
-        return { id: term.id, cwd: term.cwd, command: term.command, args: term.args };
+        return { id: term.id, cwd: term.cwd, command: term.command, args: term.args, title: term.title };
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         throw new Error(`Failed to spawn terminal: ${msg}`);
       }
     },
-  );
+  };
 
-  ipcMain.handle('terminal:write', (_e, id: string, data: string) => {
-    return terminalManager.write(id, data);
+  const commandHandlers: CommandHandlers = {
+    ...buildDefaultCommandHandlers({
+      terminals: terminalManager,
+      history: historyStore,
+      bridges,
+      plugins: loadedPlugins,
+    }),
+
+    // Desktop terminal:subscribe wires pty data into the main window's
+    // webContents.send. The default no-op in core is replaced here.
+    'terminal:subscribe': (id: string) => {
+      terminalManager.subscribe(id, {
+        send: (data: string) => {
+          try {
+            mainWindow?.webContents.send('terminal:data', id, data);
+          } catch {
+            /* window may be destroyed */
+          }
+        },
+        sendExit: (exitCode: number) => {
+          try {
+            mainWindow?.webContents.send('terminal:exit', id, exitCode);
+          } catch {
+            /* window may be destroyed */
+          }
+        },
+      });
+    },
+  };
+
+  const router = createRouter({ requestHandlers, commandHandlers });
+
+  // Push channels that core emits and we want forwarded to the renderer.
+  // Renderer-side listeners come from the preload script.
+  const pushChannels: PushChannel[] = [
+    'comm:update',
+    'tasks:update',
+    'knowledge:update',
+    'discover:update',
+    'config:changed',
+    'history:new',
+    'system:stats-update',
+  ];
+
+  unmountIpcBridge = mountIpcBridge({
+    router,
+    pushChannels,
+    getWindow: () => mainWindow,
   });
 
-  ipcMain.handle('terminal:resize', (_e, id: string, cols: number, rows: number) => {
-    return terminalManager.resize(id, cols, rows);
+  // Wire core push sources into the router's emit bus.
+  bridges.startPolling((channel, payload) => {
+    router.emit(channel as PushChannel, payload as never);
   });
+  watchConfig((data) => router.emit('config:changed', data));
+  terminalManager.onHistoryEntry((entry: HistoryEntry) => {
+    historyStore.add(entry);
+    router.emit('history:new', entry);
+  });
+  startMonitoring();
+  onStatsUpdate((stats) => router.emit('system:stats-update', stats));
 
-  ipcMain.handle('terminal:kill', (_e, id: string) => {
-    return terminalManager.kill(id);
-  });
-
-  ipcMain.handle('terminal:signal', (_e, id: string, signal: string) => {
-    return terminalManager.signal(id, signal);
-  });
-
-  ipcMain.handle('terminal:restart', (_e, id: string) => {
-    return terminalManager.restart(id);
-  });
-
-  ipcMain.handle('terminal:list', () => {
-    return terminalManager.list();
-  });
-
-  // Subscribe renderer to terminal output
-  ipcMain.on('terminal:subscribe', (e, id: string) => {
-    terminalManager.subscribe(id, {
-      send: (data: string) => {
-        try {
-          e.sender.send('terminal:data', id, data);
-        } catch {
-          // Renderer may have been destroyed
-        }
-      },
-      sendExit: (exitCode: number) => {
-        try {
-          e.sender.send('terminal:exit', id, exitCode);
-        } catch {
-          // Renderer may have been destroyed
-        }
-      },
-    });
-  });
-
-  ipcMain.on('terminal:unsubscribe', (_e, id: string) => {
-    terminalManager.unsubscribeAll(id);
-  });
+  // ---------------------------------------------------------------------------
+  // Electron-only IPC channels — NOT in the @agent-desk/core contract.
+  // These stay as direct ipcMain handlers because they touch BrowserWindow,
+  // dialog, shell, Notification, app, autoUpdater — none of which exist on
+  // the web target.
+  // ---------------------------------------------------------------------------
 
   // Window controls
   ipcMain.on('window:minimize', () => mainWindow?.minimize());
@@ -417,27 +361,6 @@ function setupIPC(): void {
     }
   });
   ipcMain.on('window:close', () => mainWindow?.close());
-
-  // Session persistence
-  ipcMain.handle('session:save', () => saveSession());
-  ipcMain.handle('session:load', () => loadSession());
-  ipcMain.handle('session:getBuffer', (_e, id: string) => getSavedBuffer(id));
-
-  ipcMain.handle('session:autoSave', () => {
-    saveSession();
-    return true;
-  });
-
-  ipcMain.handle('session:replayBuffer', (_e, id: string) => getSavedBuffer(id));
-
-  ipcMain.handle('session:setAgentInfo', (_e, id: string, agentName: string | null, profileName: string | null) => {
-    return terminalManager.setAgentInfo(id, agentName, profileName);
-  });
-
-  ipcMain.handle('session:saveLayout', (_e, layout: unknown) => {
-    _savedLayout = layout;
-    return true;
-  });
 
   // App settings
   ipcMain.on('app:setLoginItem', (_e, enabled: boolean) => {
@@ -469,8 +392,6 @@ function setupIPC(): void {
     return result.filePaths[0];
   });
 
-  const approvedWritePaths = new Set<string>();
-
   ipcMain.handle(
     'dialog:saveFile',
     async (_e, options: { defaultPath?: string; filters?: Array<{ name: string; extensions: string[] }> }) => {
@@ -486,17 +407,6 @@ function setupIPC(): void {
       return result.filePath;
     },
   );
-
-  ipcMain.handle('file:write', async (_e, filePath: string, content: string) => {
-    if (!approvedWritePaths.has(filePath)) {
-      throw new Error('File write denied: path not approved via save dialog');
-    }
-    approvedWritePaths.delete(filePath);
-    return fileWrite(filePath, content);
-  });
-
-  ipcMain.handle('file:stat', (_e, filePath: string) => fileStat(filePath));
-  ipcMain.handle('file:dirname', (_e, filePath: string) => fileDirname(filePath));
 
   // Pop-out terminal into its own window
   ipcMain.handle('terminal:popout', (_e, opts: { terminalId: string; title: string; cols?: number; rows?: number }) => {
@@ -538,15 +448,6 @@ function setupIPC(): void {
     return { windowId: popWin.id };
   });
 
-  // Config file management (F6) — backed by @agent-desk/core
-  ipcMain.handle('config:read', () => readConfig());
-  ipcMain.handle('config:write', (_e, data: ConfigData) => writeConfig(data));
-  ipcMain.handle('config:getPath', () => CONFIG_FILE);
-
-  // Keybindings persistence (F5) — backed by @agent-desk/core
-  ipcMain.handle('keybindings:read', () => readKeybindings());
-  ipcMain.handle('keybindings:write', (_e, data: Record<string, string | null>) => writeKeybindings(data));
-
   // Open path in system file manager
   ipcMain.on('shell:openPath', (_e, dirPath: string) => {
     try {
@@ -572,250 +473,10 @@ function setupIPC(): void {
     }
   });
 
-  // --- Command History (F13) — backed by @agent-desk/core HistoryStore ---
-  ipcMain.handle('history:get', (_e, limit?: number, search?: string) => historyStore.get(limit, search));
-  ipcMain.handle('history:clear', () => historyStore.clear());
-
-  // Listen for history entries from terminal manager
-  terminalManager.onHistoryEntry((entry: HistoryEntry) => {
-    historyStore.add(entry);
-    // Notify renderer of new history entry
-    if (mainWindow) {
-      try {
-        mainWindow.webContents.send('history:new', entry);
-      } catch {
-        /* window may be closed */
-      }
-    }
-  });
-
   // ---------------------------------------------------------------------------
-  // Native Dashboard Data — agent-comm
+  // (history, comm, tasks, knowledge, discover, system, mcp, crash handlers
+  //  removed — all handled via createRouter() / mountIpcBridge above.)
   // ---------------------------------------------------------------------------
-
-  ipcMain.handle('comm:state', () => {
-    if (!commCtx) return null;
-    return {
-      agents: commCtx.agents.list(),
-      channels: commCtx.channels.list(),
-      messages: commCtx.messages.list({ limit: 100 }),
-      state: commCtx.state.list(),
-      feed: commCtx.feed.recent(100),
-    };
-  });
-
-  ipcMain.handle('comm:agents', () => (commCtx ? commCtx.agents.list() : []));
-  ipcMain.handle('comm:messages', (_e, limit?: number) =>
-    commCtx ? commCtx.messages.list({ limit: limit ?? 100 }) : [],
-  );
-  ipcMain.handle('comm:channels', () => (commCtx ? commCtx.channels.list() : []));
-  ipcMain.handle('comm:state-entries', () => (commCtx ? commCtx.state.list() : []));
-  ipcMain.handle('comm:feed', (_e, limit?: number) => (commCtx ? commCtx.feed.recent(limit ?? 100) : []));
-
-  // ---------------------------------------------------------------------------
-  // Native Dashboard Data — agent-tasks
-  // ---------------------------------------------------------------------------
-
-  ipcMain.handle('tasks:state', () => {
-    if (!tasksCtx) return null;
-    return { tasks: tasksCtx.tasks.list({}) };
-  });
-
-  ipcMain.handle('tasks:list', (_e, filter?: Record<string, unknown>) => {
-    if (!tasksCtx) return [];
-    return tasksCtx.tasks.list(filter ?? {});
-  });
-
-  ipcMain.handle('tasks:get', (_e, id: number) => {
-    if (!tasksCtx) return null;
-    return tasksCtx.tasks.getById(id);
-  });
-
-  ipcMain.handle('tasks:search', (_e, query: string) => {
-    if (!tasksCtx) return [];
-    return tasksCtx.tasks.search(query);
-  });
-
-  // ---------------------------------------------------------------------------
-  // Native Dashboard Data — agent-knowledge
-  // ---------------------------------------------------------------------------
-
-  ipcMain.handle('knowledge:entries', (_e, category?: string) => {
-    try {
-      const config = getKnowledgeConfig();
-      const entries = listEntries(config.memoryDir, category);
-      return entries;
-    } catch {
-      return [];
-    }
-  });
-
-  ipcMain.handle('knowledge:read', (_e, category: string, name: string) => {
-    try {
-      const config = getKnowledgeConfig();
-      const entryPath = name ? `${category}/${name}` : category;
-      return readEntry(config.memoryDir, entryPath);
-    } catch {
-      return null;
-    }
-  });
-
-  ipcMain.handle('knowledge:search', (_e, query: string) => {
-    try {
-      const config = getKnowledgeConfig();
-      return searchKnowledge(config.memoryDir, query);
-    } catch {
-      return [];
-    }
-  });
-
-  ipcMain.handle('knowledge:sessions', () => {
-    try {
-      return listSessions();
-    } catch {
-      return [];
-    }
-  });
-
-  ipcMain.handle('knowledge:session', (_e, sessionId: string, project?: string) => {
-    try {
-      return getSessionSummary(sessionId, project);
-    } catch {
-      return null;
-    }
-  });
-
-  // ---------------------------------------------------------------------------
-  // Native Dashboard Data — agent-discover
-  // ---------------------------------------------------------------------------
-
-  ipcMain.handle('discover:state', () => {
-    if (!discoverCtx) return null;
-    return { servers: discoverCtx.registry.list() };
-  });
-
-  ipcMain.handle('discover:servers', () => (discoverCtx ? discoverCtx.registry.list() : []));
-
-  ipcMain.handle('discover:server', (_e, id: number) => {
-    if (!discoverCtx) return null;
-    return discoverCtx.registry.getById(id);
-  });
-
-  ipcMain.handle('discover:browse', async (_e, query?: string) => {
-    if (!discoverCtx) return { servers: [] };
-    try {
-      return await discoverCtx.marketplace.browse(query ?? '');
-    } catch {
-      return { servers: [] };
-    }
-  });
-
-  ipcMain.handle('discover:activate', async (_e, id: number) => {
-    if (!discoverCtx) return false;
-    try {
-      const server = discoverCtx.registry.getById(id);
-      if (!server || !server.command) return false;
-      await discoverCtx.proxy.activate({
-        name: server.name,
-        command: server.command,
-        args: server.args,
-        env: server.env,
-      });
-      discoverCtx.registry.setActive(server.name, true);
-      return true;
-    } catch {
-      return false;
-    }
-  });
-
-  ipcMain.handle('discover:deactivate', async (_e, id: number) => {
-    if (!discoverCtx) return false;
-    try {
-      const server = discoverCtx.registry.getById(id);
-      if (!server) return false;
-      await discoverCtx.proxy.deactivate(server.name);
-      discoverCtx.registry.setActive(server.name, false);
-      return true;
-    } catch {
-      return false;
-    }
-  });
-
-  ipcMain.handle('discover:delete', (_e, id: number) => {
-    if (!discoverCtx) return false;
-    try {
-      const server = discoverCtx.registry.getById(id);
-      if (!server) return false;
-      discoverCtx.registry.unregister(server.name);
-      return true;
-    } catch {
-      return false;
-    }
-  });
-
-  ipcMain.handle('discover:secrets', (_e, serverId: number) => {
-    if (!discoverCtx) return [];
-    try {
-      return discoverCtx.secrets.list(serverId);
-    } catch {
-      return [];
-    }
-  });
-
-  ipcMain.handle('discover:metrics', (_e, serverId?: number) => {
-    if (!discoverCtx) return [];
-    try {
-      if (serverId) return discoverCtx.metrics.getServerMetrics(serverId);
-      return discoverCtx.metrics.getOverview();
-    } catch {
-      return [];
-    }
-  });
-
-  ipcMain.handle('discover:health', (_e, serverId: number) => {
-    if (!discoverCtx) return null;
-    try {
-      return discoverCtx.health.getHealth(serverId);
-    } catch {
-      return null;
-    }
-  });
-
-  // ---------------------------------------------------------------------------
-  // System Monitor
-  // ---------------------------------------------------------------------------
-
-  ipcMain.handle('system:stats', () => getSystemStats());
-
-  ipcMain.handle('system:start-monitoring', () => {
-    startMonitoring();
-    return true;
-  });
-
-  ipcMain.handle('system:stop-monitoring', () => {
-    stopMonitoring();
-    return true;
-  });
-
-  // ---------------------------------------------------------------------------
-  // Crash Reporting
-  // ---------------------------------------------------------------------------
-
-  ipcMain.handle('app:reportError', (_e, errorData: { message: string; stack?: string; source: string }) => {
-    const error = new Error(errorData.message);
-    if (errorData.stack) error.stack = errorData.stack;
-    writeCrashLog(error, 'renderer');
-    return true;
-  });
-
-  ipcMain.handle('app:getCrashLogDir', () => CRASH_LOG_DIR);
-
-  // ---------------------------------------------------------------------------
-  // MCP Auto-Configuration
-  // ---------------------------------------------------------------------------
-
-  ipcMain.handle('mcp:detect-tools', () => detectInstalledTools());
-  ipcMain.handle('mcp:auto-configure', () => autoConfigureMcpServers());
 }
 
 // History persistence is now provided by @agent-desk/core HistoryStore
@@ -889,7 +550,7 @@ function sendUpdateStatus(type: string, message: string): void {
 
 app.whenReady().then(async () => {
   historyStore.load();
-  initNativeContexts();
+  bridges.init();
 
   loadedPlugins = discoverPlugins(join(__dirname, '..', '..', 'node_modules'));
   setupPluginIPC(loadedPlugins);
@@ -900,10 +561,10 @@ app.whenReady().then(async () => {
   setupIPC();
   mainWindow = createWindow();
   createTray();
-  stopConfigWatcher = watchConfig((data) => {
-    mainWindow?.webContents.send('config:changed', data);
-  });
-  startNativeDataPolling();
+  // Note: config watcher and history/system stats listeners are wired
+  // inside setupIPC() — they emit through the router so the renderer
+  // receives them via the same push channels the WS server uses.
+  stopConfigWatcher = () => {}; // disposed implicitly when bridges.close() runs
 
   setupAutoUpdater();
 
@@ -917,17 +578,6 @@ app.whenReady().then(async () => {
       }, 2000);
     });
   }
-
-  startMonitoring();
-  onStatsUpdate((stats) => {
-    if (mainWindow) {
-      try {
-        mainWindow.webContents.send('system:stats-update', stats);
-      } catch {
-        /* window may be closed */
-      }
-    }
-  });
 
   function updateTrayTooltip(): void {
     if (!tray) return;
@@ -969,7 +619,9 @@ app.on('window-all-closed', () => {
 app.on('before-quit', () => {
   isQuitting = true;
   saveSession();
-  closeNativeContexts();
+  bridges.close();
+  unmountIpcBridge?.();
+  unmountIpcBridge = null;
   stopMonitoring();
   if (saveInterval) {
     clearInterval(saveInterval);
