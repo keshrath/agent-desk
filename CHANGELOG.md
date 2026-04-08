@@ -2,6 +2,181 @@
 
 All notable changes to Agent Desk are documented in this file.
 
+## [Unreleased] - 2026-04-08
+
+### Added
+
+- **Playwright E2E plugin views test suite** at `tests/e2e/plugins.spec.ts`. Launches the Electron app via existing helpers and verifies that all four agent-\* plugin views (`comm`, `tasks`, `knowledge`, `discover`) load and respond inside the host: clicks each sidebar nav button, waits for the plugin global (`window.AC` / `window.TaskBoard` / `window.Knowledge` / `window.AD`), asserts the wrapper inside the shadow DOM has visible content, screenshots into `~/.claude/tmp/e2e-agent-desk-<view>.png`, and asserts no new console errors per view. Runnable via `npm run test:e2e:plugins`.
+
+### Changed
+
+- Tidied `.gitignore` with section headers (dependencies, local data, test artifacts, docs cache, scratch, OS cruft).
+
+## [1.0.24] - 2026-04-07
+
+### Changed
+
+- Replaced hub-session lookups with direct agent-comm DB queries.
+
+## [1.0.23] - 2026-04-06
+
+### Fixed
+
+- macOS dock Quit not actually quitting the app.
+- False crash detection on startup.
+
+## [1.0.22] - 2026-04-03
+
+### Added
+
+- **Keyboard shortcuts for all views** — `Ctrl+5` Discover, `Ctrl+6` Monitor, `Ctrl+7` Events, `Ctrl+8` Settings.
+
+### Fixed
+
+- Event badge filter count was off.
+- Plugin version now read from `package.json` instead of being hardcoded.
+
+## [1.0.21] - 2026-04-03
+
+### Changed
+
+- Adopted morphdom for DOM rendering across `agent-monitor`, `event-stream`, `commands`, `settings`. Replaces innerHTML rewrites with diffed updates.
+
+## [1.0.20] - 2026-04-03
+
+### Fixed
+
+- Synced all missing CSS variables to plugins (`accent-solid`, `bg-inset`, `text-secondary`, `shadow-hover`, `shadow-panel`).
+
+## [1.0.19] - 2026-04-03
+
+### Fixed
+
+- `accent-dim` was being set to a solid colour instead of a transparent rgba.
+
+## [1.0.18] - 2026-04-03
+
+### Fixed
+
+- Empty state overlay glitch.
+- Theme toggle resetting the active view.
+- Task poll backoff under load.
+- Plugin theme sync on first mount.
+- Settings panel scroll position.
+- Status bar overflow on narrow widths.
+- Cost popover positioning.
+- Monitor empty-state copy.
+
+## [1.0.17] - 2026-04-03
+
+### Changed
+
+- **Standard CSS variable contract** for plugins — agent-desk defines the variables in `styles.css` and `syncThemeToPlugin` copies them 1:1 into each plugin's shadow DOM. Simpler than the previous derived-theme path.
+
+## [1.0.16] - 2026-04-03
+
+### Fixed
+
+- Empty state not clearing on session restore.
+
+## [1.0.15] - 2026-04-02
+
+### Changed
+
+- **Shadow-DOM plugin views replace native views.** All four agent-\* dashboards now load via the plugin protocol into a shadow root, with derived theme sync.
+
+## [1.0.13] - 2026-04-02
+
+### Changed
+
+- Reverted to native views temporarily — plugin mount needed shadow DOM iteration. Re-fixed in v1.0.15.
+
+## [1.0.12] - 2026-04-02
+
+### Changed
+
+- Restored native views, kept plugin infra for future use.
+
+## [1.0.11] - 2026-04-02
+
+### Fixed
+
+- Plugin discovery — `__dirname` was undefined in ESM context.
+
+## [1.0.10] - 2026-04-02
+
+### Removed
+
+- Native views deleted; plugins are now the only path for embedded agent-\* dashboards.
+
+## [1.0.9] - 2026-04-02
+
+### Added
+
+- **Plugin system** for loading agent-\* UIs as first-party plugins. Each plugin ships an `agent-desk-plugin.json` manifest, and the renderer mounts it via a `plugin://` protocol into a per-view container.
+
+## [1.0.8] - 2026-04-01
+
+### Added
+
+- Full feature parity for the four embedded views (comm/tasks/knowledge/discover).
+- Hooks autoconfig.
+- E2E test framework (`tests/e2e/`) with reusable launch/teardown helpers.
+
+### Fixed
+
+- Assorted bugfixes from QA.
+
+## [1.0.7] - 2026-04-01
+
+### Removed
+
+- Webview infrastructure. Embedded dashboards no longer use `<webview>`.
+
+### Added
+
+- MCP config step in the onboarding wizard.
+
+## [1.0.6] - 2026-04-01
+
+### Added
+
+- **Auto-configure MCP servers** for Claude Code, Cursor, Windsurf, Gemini CLI, and OpenCode on first launch.
+
+## [1.0.5] - 2026-03-31
+
+### Added
+
+- Native views for comm, tasks, knowledge, discover via direct npm dep imports (later replaced by the plugin system in 1.0.9).
+
+## [1.0.4] - 2026-03-30
+
+### Added
+
+- Discover tab — embeds the agent-discover dashboard on port 3424.
+
+## [1.0.3] - 2026-03-30
+
+### Added
+
+- Full dashboard theme sync across the embedded views.
+- Bundled MCP servers in the install package.
+
+### Fixed
+
+- Assorted bugs.
+
+## [1.0.2] - 2026-03-29
+
+### Added
+
+- VitePress documentation site, MIT license headers.
+- Mac x64 build added to CI.
+
+### Changed
+
+- Comprehensive docs / screenshots refresh.
+
 ## [1.0.1] - 2026-03-28
 
 ### Changed
