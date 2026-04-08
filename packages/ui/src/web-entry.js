@@ -10,12 +10,15 @@
 // the server-side READONLY_BLOCKED_CHANNELS but enforced client-side too as
 // defense-in-depth + better UX — failures don't even hit the network).
 
+/// <reference lib="dom" />
 import { buildAgentDeskApi } from '@agent-desk/core';
+/** @typedef {import('@agent-desk/core').ApiTransport} ApiTransport */
+/** @typedef {import('@agent-desk/core').LocalOnlyBinding} LocalOnlyBinding */
 
 const PROTOCOL = location.protocol === 'https:' ? 'wss:' : 'ws:';
 const WS_URL = `${PROTOCOL}//${location.host}/ws${location.search}`;
 
-const READ_ONLY = !!window.__AGENT_DESK_READ_ONLY__;
+const READ_ONLY = !!(/** @type {any} */ (window).__AGENT_DESK_READ_ONLY__);
 
 const READONLY_BLOCKED = new Set([
   'terminal:create',
@@ -37,30 +40,36 @@ const READONLY_BLOCKED = new Set([
   'mcp:auto-configure',
 ]);
 
+/** @type {WebSocket | null} */
 let ws = null;
 let nextRpcId = 1;
+/** @type {Map<number, { resolve: (v: unknown) => void; reject: (e: Error) => void }>} */
 const pending = new Map();
+/** @type {Map<string, Array<(...args: unknown[]) => void>>} */
 const pushListeners = new Map();
+/** @type {Promise<void> | null} */
 let connectPromise = null;
 
 function connect() {
   if (connectPromise) return connectPromise;
   connectPromise = new Promise((resolve, reject) => {
-    ws = new WebSocket(WS_URL);
-    ws.onopen = () => resolve();
-    ws.onerror = (err) => reject(err);
-    ws.onmessage = (ev) => {
+    const sock = new WebSocket(WS_URL);
+    ws = sock;
+    sock.onopen = () => resolve();
+    sock.onerror = (err) => reject(/** @type {Error} */ (/** @type {unknown} */ (err)));
+    sock.onmessage = (ev) => {
       let msg;
       try {
-        msg = JSON.parse(ev.data);
+        msg = JSON.parse(/** @type {string} */ (ev.data));
       } catch {
         return;
       }
       if (msg.id != null && pending.has(msg.id)) {
-        const { resolve: r, reject: rj } = pending.get(msg.id);
+        const entry = pending.get(msg.id);
         pending.delete(msg.id);
-        if (msg.error) rj(new Error(msg.error));
-        else r(msg.result);
+        if (!entry) return;
+        if (msg.error) entry.reject(new Error(msg.error));
+        else entry.resolve(msg.result);
         return;
       }
       if (msg.push) {
@@ -68,7 +77,7 @@ function connect() {
         if (listeners) for (const fn of listeners) fn(...(msg.args || []));
       }
     };
-    ws.onclose = () => {
+    sock.onclose = () => {
       connectPromise = null;
       ws = null;
       for (const { reject: rj } of pending.values()) rj(new Error('ws closed'));
@@ -78,16 +87,23 @@ function connect() {
   return connectPromise;
 }
 
+/**
+ * @param {string} channel
+ * @param {unknown[]} args
+ * @returns {Promise<unknown>}
+ */
 async function rpc(channel, args) {
   if (READ_ONLY && READONLY_BLOCKED.has(channel)) {
     console.warn('[agent-desk/ui] read-only: blocked', channel);
     return null;
   }
   await connect();
+  if (!ws) throw new Error('ws not connected');
   const id = nextRpcId++;
+  const sock = ws;
   return new Promise((resolve, reject) => {
     pending.set(id, { resolve, reject });
-    ws.send(JSON.stringify({ id, ch: channel, args }));
+    sock.send(JSON.stringify({ id, ch: channel, args }));
     setTimeout(() => {
       if (pending.has(id)) {
         pending.delete(id);
@@ -97,12 +113,22 @@ async function rpc(channel, args) {
   });
 }
 
+/**
+ * @param {string} channel
+ * @param {unknown[]} args
+ */
 async function fire(channel, args) {
   if (READ_ONLY && READONLY_BLOCKED.has(channel)) return;
   await connect();
+  if (!ws) return;
   ws.send(JSON.stringify({ ch: channel, args }));
 }
 
+/**
+ * @param {string} channel
+ * @param {(...args: unknown[]) => void} listener
+ * @returns {() => void}
+ */
 function subscribePush(channel, listener) {
   let arr = pushListeners.get(channel);
   if (!arr) {
@@ -111,11 +137,17 @@ function subscribePush(channel, listener) {
   }
   arr.push(listener);
   return () => {
+    if (!arr) return;
     const idx = arr.indexOf(listener);
     if (idx >= 0) arr.splice(idx, 1);
   };
 }
 
+/**
+ * @param {LocalOnlyBinding['tag']} tag
+ * @param {unknown[]} args
+ * @returns {unknown}
+ */
 function webLocalOnly(tag, args) {
   switch (tag) {
     // window controls — desktop-only, web no-op
@@ -127,7 +159,7 @@ function webLocalOnly(tag, args) {
     case 'shell.openPath':
       return;
     case 'shell.openExternal': {
-      const url = args[0];
+      const url = /** @type {string} */ (args[0]);
       try {
         window.open(url, '_blank', 'noopener');
       } catch {
@@ -136,7 +168,7 @@ function webLocalOnly(tag, args) {
       return;
     }
     case 'app.notify': {
-      const [title, body] = args;
+      const [title, body] = /** @type {[string, string]} */ (args);
       if ('Notification' in window && Notification.permission === 'granted') {
         try {
           new Notification(title, { body });
@@ -163,6 +195,7 @@ function webLocalOnly(tag, args) {
   }
 }
 
+/** @type {ApiTransport} */
 const transport = {
   request(channel, args) {
     return rpc(channel, args);
@@ -183,9 +216,9 @@ agentDesk.__readOnly = READ_ONLY;
 agentDesk.__target = 'web';
 agentDesk.__ws = () => ws;
 
-window.agentDesk = agentDesk;
+/** @type {any} */ (window).agentDesk = agentDesk;
 
-void connect().catch((err) => {
+void connect().catch((/** @type {unknown} */ err) => {
   console.error('[agent-desk/ui] WS connect failed', err);
 });
 

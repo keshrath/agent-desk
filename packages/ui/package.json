@@ -8,6 +8,13 @@
     "node": ">=22.0.0 <23.0.0",
     "npm": ">=10.0.0"
   },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@agent-desk/core": "*",
+    "typescript": "^5.7.0"
+  },
   "exports": {
     ".": "./src/web-entry.js",
     "./web": "./src/web-entry.js",
