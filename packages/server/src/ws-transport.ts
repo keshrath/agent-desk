@@ -34,9 +34,10 @@ interface RpcPush {
 
 export interface WsTransportOptions {
   http: HttpServer;
-  buildHandlers: (
-    pushFromCore: (channel: PushChannel, ...args: unknown[]) => void,
-  ) => { request: RequestHandlers; command: CommandHandlers };
+  buildHandlers: (pushFromCore: (channel: PushChannel, ...args: unknown[]) => void) => {
+    request: RequestHandlers;
+    command: CommandHandlers;
+  };
   terminals: TerminalManager;
 }
 

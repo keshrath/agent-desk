@@ -159,10 +159,7 @@ function destroyPlugins(plugins: LoadedPlugin[]): void {
 // Pure handler for the 'plugins:getConfig' channel — returns the dashboard
 // base URL for a given plugin id, or null if unknown. Both desktop and server
 // targets bind this directly to their router.
-export function getPluginConfig(
-  plugins: LoadedPlugin[],
-  pluginId: string,
-): { baseUrl: string; wsUrl: string } | null {
+export function getPluginConfig(plugins: LoadedPlugin[], pluginId: string): { baseUrl: string; wsUrl: string } | null {
   const plugin = plugins.find((p) => p.manifest.id === pluginId);
   if (!plugin) return null;
   const portMap: Record<string, number> = {
@@ -180,11 +177,4 @@ export function getPluginConfig(
     : null;
 }
 
-export {
-  discoverPlugins,
-  destroyPlugins,
-  getPluginInfoList,
-  LoadedPlugin,
-  PluginManifest,
-  PluginInfo,
-};
+export { discoverPlugins, destroyPlugins, getPluginInfoList, LoadedPlugin, PluginManifest, PluginInfo };

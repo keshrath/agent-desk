@@ -68,19 +68,13 @@ export function createRouter(opts: CreateRouterOptions): Router {
       handler(...args);
     },
     async dispatchRequest(channel, args) {
-      const handlers = opts.requestHandlers as Record<
-        string,
-        ((...a: unknown[]) => unknown) | undefined
-      >;
+      const handlers = opts.requestHandlers as Record<string, ((...a: unknown[]) => unknown) | undefined>;
       const handler = handlers[channel];
       if (!handler) throw new Error(`No handler for request channel: ${channel}`);
       return handler(...args);
     },
     dispatchCommand(channel, args) {
-      const handlers = opts.commandHandlers as Record<
-        string,
-        ((...a: unknown[]) => void) | undefined
-      >;
+      const handlers = opts.commandHandlers as Record<string, ((...a: unknown[]) => void) | undefined>;
       const handler = handlers[channel];
       if (!handler) throw new Error(`No handler for command channel: ${channel}`);
       handler(...args);

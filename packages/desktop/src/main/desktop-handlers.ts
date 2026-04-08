@@ -44,7 +44,8 @@ export interface DesktopHandlersDeps {
 }
 
 export function buildDesktopRequestHandlers(deps: DesktopHandlersDeps): RequestHandlers {
-  const { terminals, history, bridges, plugins, getMainWindow, getSavedLayout, setSavedLayout, approvedWritePaths } = deps;
+  const { terminals, history, bridges, plugins, getMainWindow, getSavedLayout, setSavedLayout, approvedWritePaths } =
+    deps;
 
   return {
     ...buildDefaultRequestHandlers({ terminals, history, bridges, plugins }),

@@ -55,13 +55,23 @@ function buildPng(size) {
       const cx = size / 2;
       const cy = size / 2;
       const monogramHalf = size * 0.18;
-      const inA = x >= cx - monogramHalf && x <= cx - monogramHalf * 0.4 && y >= cy - monogramHalf && y <= cy + monogramHalf;
-      const inAcrossbar = x >= cx - monogramHalf && x <= cx - monogramHalf * 0.4 && y >= cy - monogramHalf * 0.1 && y <= cy + monogramHalf * 0.1;
-      const inD = x >= cx + monogramHalf * 0.2 && x <= cx + monogramHalf * 0.5 && y >= cy - monogramHalf && y <= cy + monogramHalf;
+      const inA =
+        x >= cx - monogramHalf && x <= cx - monogramHalf * 0.4 && y >= cy - monogramHalf && y <= cy + monogramHalf;
+      const inAcrossbar =
+        x >= cx - monogramHalf &&
+        x <= cx - monogramHalf * 0.4 &&
+        y >= cy - monogramHalf * 0.1 &&
+        y <= cy + monogramHalf * 0.1;
+      const inD =
+        x >= cx + monogramHalf * 0.2 &&
+        x <= cx + monogramHalf * 0.5 &&
+        y >= cy - monogramHalf &&
+        y <= cy + monogramHalf;
       const inDcurve =
         x >= cx + monogramHalf * 0.5 &&
         x <= cx + monogramHalf &&
-        Math.abs(y - cy) <= Math.sqrt(Math.max(0, monogramHalf * monogramHalf - (x - cx - monogramHalf * 0.5) ** 2 * 4));
+        Math.abs(y - cy) <=
+          Math.sqrt(Math.max(0, monogramHalf * monogramHalf - (x - cx - monogramHalf * 0.5) ** 2 * 4));
       const px = inA || inAcrossbar || inD || inDcurve ? WHITE : ACCENT;
       raw[off] = px[0];
       raw[off + 1] = px[1];

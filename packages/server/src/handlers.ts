@@ -2,11 +2,7 @@
 // web target. Any server-specific override (e.g. read-only mode filtering)
 // would spread into the returned map here.
 
-import {
-  buildDefaultRequestHandlers,
-  buildDefaultCommandHandlers,
-  type BuildHandlersDeps,
-} from '@agent-desk/core';
+import { buildDefaultRequestHandlers, buildDefaultCommandHandlers, type BuildHandlersDeps } from '@agent-desk/core';
 
 export type { BuildHandlersDeps };
 

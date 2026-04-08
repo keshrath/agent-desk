@@ -10,17 +10,8 @@
 // the host wires them via direct IPC handlers (desktop) or the renderer's
 // transport-ws layer intercepts them client-side (web).
 
-import {
-  TerminalManager,
-  type RequestHandlers,
-  type CommandHandlers,
-} from './index.js';
-import {
-  readConfig,
-  writeConfig,
-  CONFIG_FILE,
-  type ConfigData,
-} from './config-store.js';
+import { TerminalManager, type RequestHandlers, type CommandHandlers } from './index.js';
+import { readConfig, writeConfig, CONFIG_FILE, type ConfigData } from './config-store.js';
 import { readKeybindings, writeKeybindings } from './keybindings-store.js';
 import { HistoryStore } from './history-store.js';
 import { saveSession, loadSession, getSavedBuffer } from './session-store.js';

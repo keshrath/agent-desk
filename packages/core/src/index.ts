@@ -4,12 +4,7 @@
 export { TerminalManager } from './terminal-manager.js';
 export type { ManagedTerminal, TerminalClient, HistoryEntry } from './terminal-manager.js';
 
-export {
-  startMonitoring,
-  stopMonitoring,
-  getSystemStats,
-  onStatsUpdate,
-} from './system-monitor.js';
+export { startMonitoring, stopMonitoring, getSystemStats, onStatsUpdate } from './system-monitor.js';
 export type { SystemStats } from './system-monitor.js';
 
 export * as paths from './platform/paths.js';
@@ -31,30 +26,14 @@ export {
 } from './mcp-autoconfig.js';
 export type { ConfigResult } from './mcp-autoconfig.js';
 
-export {
-  CONFIG_FILE,
-  readConfig,
-  writeConfig,
-  watchConfig,
-} from './config-store.js';
+export { CONFIG_FILE, readConfig, writeConfig, watchConfig } from './config-store.js';
 export type { ConfigData } from './config-store.js';
 
-export {
-  KEYBINDINGS_FILE,
-  readKeybindings,
-  writeKeybindings,
-} from './keybindings-store.js';
+export { KEYBINDINGS_FILE, readKeybindings, writeKeybindings } from './keybindings-store.js';
 
 export { HistoryStore, HISTORY_FILE } from './history-store.js';
 
-export {
-  SESSION_DIR,
-  SESSION_FILE,
-  BUFFER_DIR,
-  saveSession,
-  loadSession,
-  getSavedBuffer,
-} from './session-store.js';
+export { SESSION_DIR, SESSION_FILE, BUFFER_DIR, saveSession, loadSession, getSavedBuffer } from './session-store.js';
 export type { SessionData, SessionTerminalData, SaveSessionInput } from './session-store.js';
 
 export { fileStat, fileDirname, fileWrite } from './file-ops.js';
@@ -76,12 +55,7 @@ export {
 export type { LoadedPlugin, PluginManifest, PluginInfo } from './plugin-system.js';
 
 export { createRouter } from './transport/router.js';
-export type {
-  Router,
-  RequestHandlers,
-  CommandHandlers,
-  CreateRouterOptions,
-} from './transport/router.js';
+export type { Router, RequestHandlers, CommandHandlers, CreateRouterOptions } from './transport/router.js';
 export type {
   RequestChannel,
   RequestChannelMap,
