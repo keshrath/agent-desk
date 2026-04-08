@@ -699,13 +699,6 @@ function renderFieldHTML(f, settings) {
   }
 }
 
-// Legacy DOM-returning wrapper (used by custom sections that still need it)
-function renderField(f, settings) {
-  const tmp = document.createElement('div');
-  tmp.innerHTML = renderFieldHTML(f, settings);
-  return tmp.firstElementChild;
-}
-
 // ── Profile Management ───────────────────────────────────────────────
 
 function loadProfiles() {
