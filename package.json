@@ -1,6 +1,6 @@
 {
   "name": "agent-desk",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "Unified control center for AI coding agents — terminals, dashboards, and orchestration in one app",
   "author": "Mathias Markl <mathias.markl@mukit.at>",
   "license": "MIT",
@@ -30,6 +30,7 @@
     "test": "vitest run",
     "test:unit": "vitest run",
     "test:e2e": "npx playwright test",
+    "test:e2e:web": "npx playwright test --project=web",
     "test:e2e:plugins": "npx playwright test tests/e2e/plugins.spec.ts",
     "package": "npm run build && electron-builder --config.npmRebuild=false",
     "package:win": "npm run build && electron-builder --win --config.npmRebuild=false",
