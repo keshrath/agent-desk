@@ -56,11 +56,13 @@ Running multiple AI agents means juggling terminals, losing track of which agent
 
 ### Dashboard Integration
 
-- **Agent Comm** (Ctrl+2) -- embedded agent-comm dashboard with injected action toolbar
-- **Agent Tasks** (Ctrl+3) -- embedded agent-tasks pipeline with injected action toolbar
-- **Agent Knowledge** (Ctrl+4) -- embedded agent-knowledge dashboard with injected action toolbar
+- **Agent Comm** (Ctrl+2) -- embedded agent-comm dashboard, mounted as a first-party plugin into a shadow DOM
+- **Agent Tasks** (Ctrl+3) -- embedded agent-tasks pipeline kanban
+- **Agent Knowledge** (Ctrl+4) -- embedded agent-knowledge dashboard with search and graph
+- **Agent Discover** (Ctrl+5) -- embedded agent-discover MCP registry / marketplace
+- **Agent Monitor** (Ctrl+6), **Event Stream** (Ctrl+7), **Settings** (Ctrl+8) -- native views
+- **Plugin system** -- each `agent-*` package ships an `agent-desk-plugin.json` manifest. Agent Desk discovers them at startup and mounts them via a `plugin://` protocol with theme + CSS variable sync into a per-view shadow root
 - **Dashboard Health** -- 30-second health checks with auto-reconnect; sidebar status dots show service availability
-- **Webview Bridge** -- bidirectional communication between dashboards and terminal state
 
 ### Event System
 

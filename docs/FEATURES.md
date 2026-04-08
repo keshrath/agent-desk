@@ -265,7 +265,7 @@ Workspaces are stored in `~/.agent-desk/config.json`.
 
 ## Dashboard Integration
 
-Three dashboards are embedded as webviews with health monitoring and toolbar injection.
+Four `agent-*` dashboards are embedded as **first-party plugins** loaded into per-view shadow roots with health monitoring and live theme sync.
 
 ### Agent Comm (Ctrl+2)
 
@@ -273,23 +273,19 @@ The agent-comm dashboard shows agent registration, messaging, channels, and shar
 
 ### Agent Tasks (Ctrl+3)
 
-The agent-tasks pipeline dashboard shows task stages (backlog, spec, plan, implement, test, review, done). Default URL: `http://localhost:3422`.
+The agent-tasks pipeline kanban shows task stages (backlog, spec, plan, implement, test, review, done). Default URL: `http://localhost:3422`.
 
 ### Agent Knowledge (Ctrl+4)
 
-The agent-knowledge dashboard shows the shared knowledge base with search and categories. Default URL: `http://localhost:3423`.
+The agent-knowledge dashboard shows the shared knowledge base with search, categories, and the knowledge graph. Default URL: `http://localhost:3423`.
 
-### Toolbar Injection
+### Agent Discover (Ctrl+5)
 
-Each dashboard webview gets an injected toolbar with quick actions relevant to its domain. Toolbars are added via JavaScript injection after the webview loads.
+The agent-discover MCP registry / marketplace shows installed and browsable MCP servers, secrets, metrics, and health. Default URL: `http://localhost:3424`.
 
-### Webview Bridge
+### Plugin System
 
-Bidirectional communication between dashboards and the app enables:
-
-- Dashboards can query which terminals/agents are active
-- The app pushes terminal state updates to dashboards
-- Clicking elements in dashboards can focus relevant terminals
+Each `agent-*` package ships an `agent-desk-plugin.json` manifest declaring its UI script bundle. Agent Desk discovers them at startup, registers a `plugin://` Electron protocol to serve their static assets, and mounts each plugin into a per-view shadow root by calling its `mount(container, { baseUrl, wsUrl, cssUrl })` global. Theme sync copies the standard CSS variable contract from the host's `:root` into each plugin's shadow root so they all render in the active theme.
 
 ---
 

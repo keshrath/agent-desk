@@ -845,7 +845,7 @@ The dashboard will retry automatically with exponential backoff (3s, 6s, 12s, up
 
 ### Theme Doesn't Apply to Dashboards
 
-Themes are synced to dashboards via JavaScript injection when the webview finishes loading. If a dashboard loaded before the theme was applied, switch away from the dashboard view and back to trigger a re-sync. Alternatively, change the theme in Settings, which forces an immediate sync.
+Themes are synced to plugin shadow roots whenever a plugin mounts and whenever you change theme in Settings. The host walks the standard CSS variable contract (`bg`, `accent`, `text`, …) and copies the resolved values into the plugin's shadow root. If a plugin somehow renders with default styling, switch away and back to trigger a remount, or change the theme in Settings to force an immediate sync.
 
 ### Onboarding Keeps Showing
 

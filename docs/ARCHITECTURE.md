@@ -42,11 +42,11 @@ Agent Desk is an Electron application with three process layers: main (Node.js),
 │  └────────────────────────────────────────────────────────┘   │
 │                                                             │
 │  ┌──────────────────────────────────────────────────────┐   │
-│  │              Dashboard Webviews                       │   │
-│  │  ┌──────────┐ ┌──────────┐ ┌──────────────────────┐  │   │
-│  │  │agent-comm│ │agent-task│ │ agent-knowledge      │  │   │
-│  │  │ :3421    │ │  :3422   │ │  :3423               │  │   │
-│  │  └──────────┘ └──────────┘ └──────────────────────┘  │   │
+│  │      Embedded Plugin Views (shadow DOM)              │   │
+│  │  ┌────────┐ ┌────────┐ ┌──────────┐ ┌──────────┐    │   │
+│  │  │  comm  │ │ tasks  │ │knowledge │ │ discover │    │   │
+│  │  │ :3421  │ │ :3422  │ │  :3423   │ │  :3424   │    │   │
+│  │  └────────┘ └────────┘ └──────────┘ └──────────┘    │   │
 │  └──────────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -71,7 +71,7 @@ TypeScript, compiled to `dist/preload/`. Runs in a sandboxed context between mai
 | File                | Responsibility                                                  |
 | ------------------- | --------------------------------------------------------------- |
 | `index.ts`          | Exposes `window.agentDesk` API via `contextBridge.exposeInMainWorld` -- terminal, session, config, dialog, keybindings, history, dashboard, system, app lifecycle |
-| `webview-bridge.ts` | Preload script injected into dashboard webviews for bidirectional state sync |
+| `plugin-system.ts` (in `main/`) | Plugin discovery, `plugin://` protocol registration, `plugins:list` / `plugins:getConfig` IPC handlers — see Dashboard Integration below |
 
 ### Renderer (`src/renderer/`)
 
@@ -110,28 +110,32 @@ agentDesk.terminal.onData() → ipcRenderer.on()        ← ipcMain sends 'termi
 
 ## Dashboard Integration
 
-Three external dashboards are embedded as Electron `<webview>` tags:
+Four external `agent-*` dashboards are embedded as **first-party plugins** loaded into per-view shadow roots — no `<webview>` tags, no iframes.
 
 ```
-agent-comm    → http://localhost:3421
-agent-tasks   → http://localhost:3422
-agent-knowledge → http://localhost:3423
+agent-comm     → http://localhost:3421   (Ctrl+2)
+agent-tasks    → http://localhost:3422   (Ctrl+3)
+agent-knowledge → http://localhost:3423  (Ctrl+4)
+agent-discover → http://localhost:3424   (Ctrl+5)
 ```
+
+### Plugin System
+
+Each `agent-*` package ships an `agent-desk-plugin.json` manifest declaring its UI script bundle, CSS, and the runtime files the renderer must load. At app startup `src/main/plugin-system.ts`:
+
+1. **Discovers** plugins by scanning `node_modules/agent-*/agent-desk-plugin.json`.
+2. **Registers** the `plugin://` Electron protocol that serves each plugin's static assets.
+3. **Exposes** `plugins:list` and `plugins:getConfig` IPC handlers — `getConfig` returns each plugin's `baseUrl` (`http://localhost:<port>`) and `wsUrl` (`localhost:<port>`).
+
+The renderer (`src/renderer/plugin-loader.js`) sequentially loads each plugin's script URLs into the global scope, then calls `<global>.mount(container, options)` (e.g. `window.AC.mount`, `window.TaskBoard.mount`). Each plugin attaches a shadow root to its container and renders into it.
+
+### Theme Sync
+
+Agent Desk owns the design tokens — accent, surface, text, borders, shadows. On theme change `syncThemeToPlugin(container)` walks the standard CSS variable contract (`bg`, `bg-surface`, `accent`, `accent-dim`, `text`, `text-muted`, …) and copies the resolved values from `:root` into the plugin's shadow root, so every plugin renders in the same theme as the host.
 
 ### Health Monitoring
 
 The main process runs HTTP health checks every 30 seconds against each dashboard URL. Results are pushed to the renderer, which updates sidebar status dots (green = healthy, red = unreachable).
-
-### Webview Bridge
-
-Each webview gets a custom preload script (`webview-bridge.ts`) that enables bidirectional communication:
-
-- **Dashboard to App**: Dashboard can query terminal state, trigger terminal creation
-- **App to Dashboard**: App pushes terminal updates, agent status changes
-
-### Dashboard Injectors
-
-Per-dashboard JavaScript files (`dashboard-injectors/*.js`) are injected into each webview after load to add a toolbar with quick actions (e.g., create agent, view tasks).
 
 ## Agent Detection Pipeline
 

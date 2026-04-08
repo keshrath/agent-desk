@@ -157,13 +157,14 @@ Default keybindings are built into the app. User overrides take precedence. You 
 
 ## Dashboard Services
 
-Agent Desk embeds three dashboard services as webviews. These are separate applications that must be running for their respective views to work.
+Agent Desk embeds four `agent-*` dashboards as **first-party plugins** loaded into per-view shadow roots. Each dashboard must be running on its port for the respective view to populate.
 
-| Service         | Default URL              | Purpose                    | Install                           |
-| --------------- | ------------------------ | -------------------------- | --------------------------------- |
-| agent-comm      | http://localhost:3421    | Agent communication hub    | `npm install -g agent-comm`       |
-| agent-tasks     | http://localhost:3422    | Task pipeline management   | `npm install -g agent-tasks`      |
-| agent-knowledge | http://localhost:3423    | Knowledge base             | `npm install -g agent-knowledge`  |
+| Service         | Default URL              | Purpose                       | Install                           |
+| --------------- | ------------------------ | ----------------------------- | --------------------------------- |
+| agent-comm      | http://localhost:3421    | Agent communication hub       | `npm install -g agent-comm`       |
+| agent-tasks     | http://localhost:3422    | Task pipeline management      | `npm install -g agent-tasks`      |
+| agent-knowledge | http://localhost:3423    | Cross-machine knowledge base  | `npm install -g agent-knowledge`  |
+| agent-discover  | http://localhost:3424    | MCP server registry / market  | `npm install -g agent-discover`   |
 
 Dashboard URLs are configurable in Settings. The sidebar shows colored status dots:
 
