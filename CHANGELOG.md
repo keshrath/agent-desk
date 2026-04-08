@@ -2,6 +2,71 @@
 
 All notable changes to Agent Desk are documented in this file.
 
+## [1.4.3] - 2026-04-08
+
+### Added — R11 + R12
+
+- **Per-connection rate limiting** on `@agent-desk/server`. Token bucket: `AGENT_DESK_RATE_LIMIT_RPS` (default 50) refills `AGENT_DESK_RATE_LIMIT_BURST` (default 100). Failures return a 0-id error frame.
+- **Hard pty cap per server**: `AGENT_DESK_TERMINAL_CAP` (default 64). `terminal:create` above the cap returns `terminal cap reached` and never spawns the pty.
+- **`docs/deployment.md`** expanded: full env-var table, native module ABI section, threat model section.
+
+## [1.4.2] - 2026-04-08
+
+### Added — R6
+
+- **Server-rendered `index.html`**: `@agent-desk/server` injects a `<script type="module" src="/ui/web-entry.js">` tag inside `<head>` when serving the renderer's HTML, so the desktop and web target load the same `packages/ui/src/renderer/index.html`. The desktop continues to use Electron's preload bridge for the same role.
+- New playwright web e2e test verifying the script injection (8/8 tests pass).
+
+## [1.4.1] - 2026-04-08
+
+### Changed — R2
+
+- **`packages/ui/src/web-entry.js` is now strict-type-checked** under `tsc --noEmit` with `checkJs` + `allowJs` + JSDoc parameter types. The file is still served as raw JS to the browser, but type errors are caught at build time.
+- New `packages/ui/tsconfig.json`, new `packages/ui` `typecheck` script, root build runs `npm run typecheck -w @agent-desk/ui`.
+
+## [1.4.0] - 2026-04-08
+
+### Changed — R1: single-source the `window.agentDesk` shape
+
+- **`packages/core/src/transport/api-shape.ts`** is the new declarative source of the `window.agentDesk` API surface. `API_SHAPE` maps each bucket method to one of four binding kinds: `request`, `command`, `subscribe`, `localOnly`.
+- **`buildAgentDeskApi(transport)`** iterates the shape and builds the bucket objects from a transport adapter's primitives.
+- **`packages/desktop/src/preload/index.ts`** dropped from 223 → 90 lines. Pure transport adapter using `ipcRenderer.invoke/.send/.on` plus a switch for the localOnly tags.
+- **`packages/ui/src/web-entry.js`** dropped from 269 → 192 lines. Same shape, WS transport.
+- Adding a new channel now touches THREE files (channels.ts + handlers-default.ts + api-shape.ts) instead of FOUR — the preload and web shim pick it up automatically.
+
+## [1.3.3] - 2026-04-08
+
+### Changed — R5
+
+- **`setupIPC()` split** into focused functions: `buildContractRouter()`, `wireCorePushBus()`, `mountElectronHandlers()` (new file `packages/desktop/src/main/electron-handlers.ts`).
+- All electron-only `ipcMain` handlers (popout, dialog, window, shell, autoUpdater, app:notify) extracted to the dedicated module.
+
+## [1.3.2] - 2026-04-08
+
+### Added — R13
+
+- **`@agent-desk/server` `--readonly` flag** (also `AGENT_DESK_SERVER_READONLY=1`). Wraps `buildRequestHandlers` and rejects 17 mutating channels with `code: AGENT_DESK_READONLY`.
+- New `tests/integration/server-readonly.test.ts` (5 tests, all pass).
+
+### Changed — R3
+
+- **`AgentBridges` fields are now ECMAScript private** (`#commCtx` etc.) with public readonly getters. Prevents accidental nulling from handler code.
+
+### Changed — R7
+
+- **Prettier formatting** applied across 10 drifted files. CI gate is now clean.
+
+## [1.3.0] - 2026-04-08
+
+### Changed — Architectural cleanup pass
+
+- **`src/main/` → `packages/desktop/src/main/`** (git mv preserved history). The orphan top-level `src/` is gone. Root `tsconfig.json` deleted.
+- **`packages/desktop/src/main/desktop-handlers.ts`** extracted desktop overrides (session save with window bounds, file:write with path-approval, terminal:create with error wrapping, terminal:subscribe wiring).
+- **`Router.dispatchRequest(channel: string, args: unknown[])`** typed runtime-string escape hatch — no more `as unknown as` casts in transport adapters.
+- **Channel result types tightened**: ~20 `unknown`/`unknown[]` results in `RequestChannelMap` replaced with concrete types from core stores.
+- **`engines` pin**: all 6 `package.json` files declare `node: >=22.0.0 <23.0.0`. New `.nvmrc`. CONTRIBUTING.md updated.
+- **`.github/workflows/ci.yml`** runs build → eslint → prettier check → vitest → playwright web on every push/PR. Tag pushes also trigger `build-linux`.
+
 ## [1.2.1] - 2026-04-08
 
 ### Added
