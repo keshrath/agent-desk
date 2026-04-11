@@ -53,8 +53,6 @@ Agent Desk surfaces agent state in several places — there's no dedicated "Agen
 2. **Agent Comm dashboard** (<kbd>Ctrl+2</kbd>) — cross-session roster + live activity feed
 3. **Status bar** — per-terminal token/cost readout with $2 / $5 warning thresholds
 
-![Agent Comm overview](/screenshots/agent-comm.png)
-
 ## Launch Multiple Agents
 
 For parallel workflows, use **Batch Launch**:

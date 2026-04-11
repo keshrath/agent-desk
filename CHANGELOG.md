@@ -2,6 +2,12 @@
 
 All notable changes to Agent Desk are documented in this file.
 
+## [1.6.1] - 2026-04-11
+
+### Fixed
+
+- **`docs/guide/quick-start.md`**: removed a broken `/screenshots/agent-comm.png` reference introduced in v1.6.0 that caused the vitepress docs build to fail with `Rollup failed to resolve import`. The rewritten "Check Agent Status" section now uses plain text to describe the three surfaces where detected agents appear (tab indicators, Agent Comm dashboard, status bar).
+
 ## [1.6.0] - 2026-04-11
 
 Four new features landed in parallel, unified under the "project-centric" framing. Feature work carried out by four isolated subagents coordinating via the pipeline and agent-comm file-coord hook; integration + final E2E gate done on the shared working tree with zero merge conflicts.
