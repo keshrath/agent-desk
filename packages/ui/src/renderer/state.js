@@ -68,9 +68,6 @@ export const dom = {
   get viewDiscover() {
     return document.getElementById('view-discover');
   },
-  get viewMonitor() {
-    return document.getElementById('view-monitor');
-  },
   get viewEvents() {
     return document.getElementById('view-events');
   },

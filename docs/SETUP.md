@@ -93,10 +93,11 @@ On first launch, Agent Desk:
 
 To get started with multi-agent workflows:
 
-1. **Ctrl+Shift+C** -- open a Claude Code terminal
-2. **Ctrl+Shift+D** -- split right for a second terminal
-3. **Ctrl+5** -- open the Agent Monitor to see detected agents
-4. **Ctrl+2/3/4** -- view embedded dashboards (requires running services)
+1. **Ctrl+Shift+W** -- save a project workspace (pick a folder, color, agents)
+2. **Ctrl+Shift+C** -- open a Claude Code terminal
+3. **Ctrl+Shift+D** -- split right for a second terminal
+4. **Ctrl+2/3/4/5** -- view embedded dashboards (Agent Comm / Tasks / Knowledge / Discover)
+5. **Ctrl+7** -- open the Event Stream to watch tool calls in real time
 
 ---
 
@@ -134,7 +135,7 @@ To get started with multi-agent workflows:
 }
 ```
 
-Settings are also editable via the Settings panel (**Ctrl+6**). Changes in Settings write to the config file; external edits to the config file trigger a hot-reload in the app.
+Settings are also editable via the Settings panel (**Ctrl+7**). Changes in Settings write to the config file; external edits to the config file trigger a hot-reload in the app.
 
 ### Keybindings
 
@@ -147,7 +148,7 @@ Settings are also editable via the Settings panel (**Ctrl+6**). Changes in Setti
 }
 ```
 
-Default keybindings are built into the app. User overrides take precedence. You can also configure keybindings via Settings (**Ctrl+6**) using the capture UI.
+Default keybindings are built into the app. User overrides take precedence. You can also configure keybindings via Settings (**Ctrl+7**) using the capture UI.
 
 ### Crash Logs
 
@@ -246,7 +247,7 @@ Shell profiles let you configure different terminal environments. Two profiles a
 - **Default Shell** -- uses your system's default shell
 - **Claude Code** -- launches `claude` with appropriate flags
 
-Custom profiles can be created in Settings (**Ctrl+6**) with:
+Custom profiles can be created in Settings (**Ctrl+7**) with:
 
 | Field   | Description                                    |
 | ------- | ---------------------------------------------- |

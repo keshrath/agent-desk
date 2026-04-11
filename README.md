@@ -38,7 +38,7 @@ Running multiple AI agents means juggling terminals, losing track of which agent
 ### Agent Intelligence
 
 - **Agent Detection** -- auto-detects Claude Code sessions by parsing tool calls, file modifications, test results, and errors from terminal output
-- **Agent Monitor** (Ctrl+5) -- live card-based dashboard showing all agents with status, task assignments, tool call counts, uptime, and activity
+- **Live tab indicators** -- tab titles show agent name, current activity, and attention state (waiting on user, running, idle, errored)
 - **Lifecycle Controls** -- interrupt (SIGINT), stop (SIGTERM), kill (SIGKILL), and restart agents from the context menu or tab buttons
 - **Cost Tracking** -- per-agent token/cost estimation in the status bar with $2/$5 warning thresholds
 - **Terminal Chains** -- trigger commands in one terminal when another exits or changes status
@@ -60,7 +60,7 @@ Running multiple AI agents means juggling terminals, losing track of which agent
 - **Agent Tasks** (Ctrl+3) -- embedded agent-tasks pipeline kanban
 - **Agent Knowledge** (Ctrl+4) -- embedded agent-knowledge dashboard with search and graph
 - **Agent Discover** (Ctrl+5) -- embedded agent-discover MCP registry / marketplace
-- **Agent Monitor** (Ctrl+6), **Event Stream** (Ctrl+7), **Settings** (Ctrl+8) -- native views
+- **Event Stream** (Ctrl+6), **Settings** (Ctrl+7) -- native views
 - **Plugin system** -- each `agent-*` package ships an `agent-desk-plugin.json` manifest. Agent Desk discovers them at startup and mounts them via a `plugin://` protocol with theme + CSS variable sync into a per-view shadow root
 - **Dashboard Health** -- 30-second health checks with auto-reconnect; sidebar status dots show service availability
 
@@ -69,11 +69,20 @@ Running multiple AI agents means juggling terminals, losing track of which agent
 - **Event Stream** (Ctrl+E) -- filterable timeline panel showing up to 200 events with expandable details, severity color coding, and JSON export
 - **Event Bus** -- internal pub/sub system emitting terminal lifecycle, agent tool calls, file modifications, test results, errors, and chain triggers
 
-### Session & Workspace
+### Project-Centric Workspaces
 
+- **Workspaces** (Ctrl+Shift+W / Ctrl+Alt+W) -- bundle a root folder, per-workspace env vars, color, agent selection, and pin state; opening spawns terminals for every configured agent
+- **Workspace switcher** -- titlebar dropdown with pinned + recent workspaces; one-click open
+- **24-color palette** -- visual identity for tabs, sidebar accents, and switcher rows
 - **Session Persistence** -- auto-save every 60 seconds; restore prompt on startup with 10-second countdown; buffer replay for terminal history
-- **Workspaces** (Ctrl+Shift+W / Ctrl+Alt+W) -- save and load named terminal layouts including commands, profiles, and working directories
 - **Layout auto-save** -- dockview grid state persisted automatically
+- **Migration** -- pre-1.6 layout-only workspaces lift automatically to the new v2 shape on first read
+
+### Git Integration
+
+- **Read-only git sidebar** -- branch, ahead/behind, per-file status (M/A/D/?/R/U), last commit; powered by simple-git with fs.watch on `.git/HEAD` + `.git/index`
+- **Diff viewer** -- Shiki-highlighted dockview overlay with unified and side-by-side modes, j/k hunk navigation, Esc to close, o to open in external editor
+- **External editor handoff** -- detects VS Code, Cursor, Windsurf, VSCodium on PATH; opens files via `vscode://file/<path>:<line>:<col>` URL scheme with `--goto` CLI fallback; context menu items on terminal tabs, agent cards, git file rows, and inside the diff viewer
 
 ### Appearance
 
@@ -146,8 +155,9 @@ Pre-built binaries for Windows, macOS, and Linux are available on the [GitHub Re
 | Ctrl+2     | Agent Comm view       |
 | Ctrl+3     | Agent Tasks view      |
 | Ctrl+4     | Agent Knowledge view  |
-| Ctrl+5     | Agent Monitor view    |
-| Ctrl+6     | Settings view         |
+| Ctrl+5     | Agent Discover view   |
+| Ctrl+6     | Event Stream view     |
+| Ctrl+7     | Settings view         |
 
 ### General
 

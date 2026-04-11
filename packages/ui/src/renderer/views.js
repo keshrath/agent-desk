@@ -40,7 +40,7 @@ async function _initPluginView(viewKey, pluginId, container) {
 }
 
 export function switchView(viewName) {
-  const validViews = ['terminals', 'comm', 'tasks', 'knowledge', 'discover', 'monitor', 'events', 'settings'];
+  const validViews = ['terminals', 'comm', 'tasks', 'knowledge', 'discover', 'events', 'settings'];
   if (!validViews.includes(viewName)) return;
 
   state.activeView = viewName;
@@ -50,14 +50,9 @@ export function switchView(viewName) {
   dom.viewTasks?.classList.remove('active');
   dom.viewKnowledge?.classList.remove('active');
   dom.viewDiscover?.classList.remove('active');
-  dom.viewMonitor?.classList.remove('active');
   dom.viewEvents?.classList.remove('active');
   dom.settingsView?.classList.remove('active');
   dom.tabBar.style.display = 'none';
-
-  if (registry.stopMonitorRefresh && viewName !== 'monitor') {
-    registry.stopMonitorRefresh();
-  }
 
   switch (viewName) {
     case 'terminals':
@@ -90,10 +85,6 @@ export function switchView(viewName) {
     case 'discover':
       if (dom.viewDiscover) dom.viewDiscover.classList.add('active');
       _initPluginView('discover', 'agent-discover', dom.viewDiscover);
-      break;
-    case 'monitor':
-      dom.viewMonitor.classList.add('active');
-      if (registry.startMonitorRefresh) registry.startMonitorRefresh();
       break;
     case 'events':
       dom.viewEvents.classList.add('active');
@@ -206,7 +197,6 @@ export function applyTheme(themeId) {
       tasks: dom.viewTasks,
       knowledge: dom.viewKnowledge,
       discover: dom.viewDiscover,
-      monitor: dom.viewMonitor,
       events: dom.viewEvents,
       settings: dom.settingsView,
     };
@@ -350,11 +340,10 @@ export function updateStatusBar() {
       }
     } else {
       const viewNames = {
-        comm: 'Communication',
-        tasks: 'Tasks',
+        comm: 'Agent Comm',
+        tasks: 'Agent Tasks',
         knowledge: 'Agent Knowledge',
-        discover: 'Discover',
-        monitor: 'Agent Monitor',
+        discover: 'Agent Discover',
         events: 'Event Stream',
         settings: 'Settings',
       };

@@ -10,6 +10,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { mkdtempSync, rmSync, existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
+import { spawnSync } from 'child_process';
 
 let tmpHome: string;
 let prevHome: string | undefined;
@@ -343,10 +344,13 @@ describe('mcp-autoconfig — configureClaudeCodeExtras', () => {
     expect(r.message).toMatch(/parse/i);
   });
 
-  it('all HOOK_SCRIPTS contents parse as syntactically valid JavaScript', async () => {
+  it('all HOOK_SCRIPTS contents parse as syntactically valid JavaScript (node --check)', async () => {
     const { configureClaudeCodeExtras } = await load();
     configureClaudeCodeExtras();
+    // Make the agent-desk hooks dir a live ES module scope so `import` is valid,
+    // matching what the real ~/.claude/hooks/package.json declares.
     const hooksDir = join(tmpHome, '.claude', 'hooks', 'agent-desk');
+    writeFileSync(join(tmpHome, '.claude', 'hooks', 'package.json'), '{"type":"module"}', 'utf-8');
     const files = [
       'comm-session-start.js',
       'tasks-session-start.js',
@@ -358,10 +362,11 @@ describe('mcp-autoconfig — configureClaudeCodeExtras', () => {
       'tasks-cleanup-start.js',
     ];
     for (const f of files) {
-      const content = readFileSync(join(hooksDir, f), 'utf-8');
-      // Strip shebang (not valid inside new Function)
-      const body = content.replace(/^#![^\n]*\n/, '');
-      expect(() => new Function(body)).not.toThrow();
+      const r = spawnSync(process.execPath, ['--check', join(hooksDir, f)], {
+        encoding: 'utf-8',
+      });
+      expect(r.status, `${f} failed node --check:\n${r.stderr}`).toBe(0);
+      expect(r.stderr).not.toMatch(/SyntaxError|ReferenceError/);
     }
   });
 });

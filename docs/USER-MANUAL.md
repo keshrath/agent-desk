@@ -30,7 +30,7 @@ Agent Desk is a desktop application that serves as a unified control center for 
 When you start Agent Desk for the first time, you are greeted by the **onboarding wizard** -- a three-step walkthrough that introduces the core features:
 
 1. **Welcome screen** -- a brief introduction to the app.
-2. **Feature carousel** -- swipe through key features: Terminals, Agent Monitor, Batch Launch, Dashboards, and Search. Each card shows the feature name, a short description, and (where applicable) the keyboard shortcut.
+2. **Feature carousel** -- swipe through key features: Terminals, Workspaces, Batch Launch, Dashboards, Git Sidebar, and Diff Viewer. Each card shows the feature name, a short description, and (where applicable) the keyboard shortcut.
 3. **Quick Start** -- choose to launch your first agent immediately or explore on your own. A checkbox lets you disable the wizard for future launches.
 
 After the wizard closes, Agent Desk opens the Terminals view. If the setting "New Terminal on Startup" is enabled (it is by default), a terminal session starts automatically using your default profile.
@@ -65,7 +65,8 @@ The sidebar is a narrow vertical bar on the left side of the window (or right, i
 | `forum` | Agent Comm | Ctrl+2 | Agent communication dashboard |
 | `task_alt` | Agent Tasks | Ctrl+3 | Task pipeline dashboard |
 | `psychology` | Agent Knowledge | Ctrl+4 | Knowledge base dashboard |
-| `hub` | Agent Monitor | Ctrl+5 | Live agent status cards |
+| `widgets` | Agent Discover | Ctrl+5 | MCP registry / marketplace |
+| `timeline` | Events | Ctrl+6 | Event stream timeline |
 | `timeline` | Event Stream | Ctrl+E | Filterable event timeline |
 
 **Bottom section** -- Action buttons:
@@ -117,8 +118,8 @@ The status bar runs along the bottom of the window. It has three sections:
 This is where the active view renders:
 
 - **Terminals view** -- a grid of terminal panes that you can split, resize, and rearrange.
-- **Dashboard views** (Comm, Tasks, Knowledge) -- embedded web views of the respective services.
-- **Agent Monitor** -- a card grid showing all detected agents.
+- **Dashboard views** (Comm, Tasks, Knowledge, Discover) -- embedded web views of the respective services.
+- **Event Stream** -- filterable timeline of terminal lifecycle, agent tool calls, and internal events.
 - **Event Stream** -- a filterable event timeline.
 - **Settings** -- the configuration panel.
 
@@ -203,40 +204,32 @@ Right-clicking a terminal tab or the terminal area opens a context menu with the
 
 ---
 
-## 4. Agent Monitor (Ctrl+5)
+## 4. Agent Detection (no dedicated view)
 
-The Agent Monitor is a dedicated view that shows all detected AI agents at a glance.
+Agent Desk parses terminal output in the background to detect AI agent sessions (Claude Code, OpenCode, Aider, and others). When detection succeeds, the agent's state becomes visible on several surfaces — **there is no separate "Agent Monitor" view** as of v1.6.0. Detection feeds:
 
-### What It Shows
+- **Tab titles** — agent name, activity indicator (working / idle / waiting / errored), and attention pulse when the agent is waiting on user input.
+- **Cost tracking** — per-terminal token/cost readout in the status bar, with $2 / $5 warning thresholds.
+- **Agent Comm dashboard** (Ctrl+2) — cross-session agent roster and activity feed, driven by the agent-comm service.
+- **Session persistence** — saved sessions remember which terminal was running which agent so titles + cost attribution survive restarts.
+- **Batch launcher naming** — spawned agents get numbered names like `agent-1`, `agent-2`, etc.
 
-The top bar displays the total agent count and a status summary (e.g., "2 working, 1 idle, 1 waiting"). A **Launch Agent** button lets you quickly start a new agent.
+### When detection fires
 
-Below the top bar is a card grid. Each agent card shows:
+An agent is considered detected when:
 
-- **Status dot** -- colored indicator matching the agent's state (working, idle, waiting, errored, finished, failed).
-- **Agent name** -- the detected or assigned name of the agent.
-- **AI badge** -- a small "AI" label appears if the terminal was detected as an AI agent session.
-- **Status label** -- a human-readable status like "Working", "Input needed", or "Finished".
-- **Task assignment** -- if the agent is assigned to a pipeline task, it shows the task ID and title (e.g., `[T42] Implement auth module`). Clicking the task badge navigates to the Tasks dashboard.
-- **Current activity** -- the last tool call, e.g., "Edit(settings.js)".
-- **Tool count** -- total number of tool calls made by the agent.
-- **Uptime** -- how long the agent has been running (e.g., "12m 34s").
+- The terminal is running a known agent command (Claude, OpenCode, Aider, Cursor CLI, Gemini CLI, Amazon Q).
+- The terminal output matches agent-specific patterns (tool calls, file modifications, test results).
 
-### When Agents Appear
+Plain shell terminals stay plain shells — no detection, no tab badges.
 
-An agent card appears when Agent Desk detects AI agent activity in a terminal. This happens automatically when:
+### Interacting with detected agents
 
-- A terminal is running a known agent command (Claude, OpenCode).
-- The terminal output matches agent-specific patterns (tool calls, file modifications).
+- **Click a tab** to focus that agent's terminal.
+- **Right-click a tab** for lifecycle controls (interrupt / stop / kill / restart) and "Open in external editor" on the agent's cwd.
+- **Agent Comm view** (Ctrl+2) is the place to see *all* agents across sessions, not just this window.
 
-Plain shell terminals do not appear in the Agent Monitor.
-
-### Interacting with Cards
-
-- **Click a card** to switch to the Terminals view and focus that agent's terminal.
-- **Click the task badge** on a card to navigate to the Tasks dashboard.
-
-The monitor refreshes every 2 seconds while the view is active, and pauses when you switch away.
+> **Migration note (v1.5 → v1.6)**: prior versions shipped a dedicated "Agent Monitor" view at `Ctrl+5`. In v1.6 that view was removed because its information already lives in the tab bar and the Agent Comm overview. Your `Ctrl+5` is now **Agent Discover** (the MCP registry view).
 
 ---
 
@@ -606,27 +599,37 @@ View and customize all keyboard shortcuts. See [Keyboard Shortcuts](#14-keyboard
 
 ## 12. Workspaces
 
-Workspaces let you save and restore your entire terminal layout -- which terminals are open, their names, commands, profiles, and grid arrangement.
+**Project-centric workspaces** (v1.6+). A workspace bundles a project root folder, per-workspace environment variables, a color, and a list of AI agents to spawn on open. The workspace switcher in the titlebar shows pinned workspaces at the top and recently-opened ones below.
 
 ### Saving a Workspace
 
 1. Press **Ctrl+Shift+W** or select "Save Workspace" from the command palette.
-2. Enter a name (e.g., "dev-setup" or "review-session").
+2. The save dialog asks for:
+   - **Name** — short label, e.g. "agent-desk" or "api-review"
+   - **Root path** — pick with the folder picker button, or paste an absolute path
+   - **Color** — click a swatch from the 24-hue palette; colors tint the titlebar tab and switcher row
+   - **Environment variables** — add `KEY=VALUE` rows with the + button; removed values are never written to the user's process environment, they're scoped to terminals spawned by this workspace
+   - **Agents** — multi-select from your available profiles (Claude Code, Default Shell, any custom profile)
+   - **Pin** — toggle to surface the workspace at the top of the switcher
 3. Click **Save**.
 
-The workspace captures all open terminals and their layout.
+### Opening a Workspace
 
-### Loading a Workspace
+- **Switcher**: click the dropdown in the titlebar, then click any pinned or recent workspace.
+- **Keyboard**: **Ctrl+Alt+W** opens the legacy workspace picker (still available for power users).
 
-1. Press **Ctrl+Alt+W** or select "Load Workspace" from the command palette.
-2. A picker appears listing all saved workspaces with the terminal count for each.
-3. Type to filter, use arrow keys to navigate, and press Enter to select.
+Opening a workspace does three things:
+1. Resolves the root path as the new default cwd
+2. Merges the workspace's env vars with the process env for every terminal it spawns
+3. Spawns one terminal per configured agent, each named `<profile> @ <workspace>`
 
-If you have running terminals, a confirmation dialog warns you that they will be closed before the workspace loads.
+### Recent workspaces
 
-### Managing Workspaces
+The switcher shows the most recently opened workspaces first, with pinned ones pinned to the top of the list. Opening a workspace bumps its `lastOpened` timestamp and re-orders the switcher automatically.
 
-In Settings > Workspaces, you can see all saved workspaces and delete ones you no longer need.
+### Migration from older versions
+
+If you're upgrading from v1.5 or earlier, your existing workspaces are migrated on first launch. The migration is lossless: layouts, terminal lists, and names are preserved; new fields (root path, color, env, agents, pinned) default to empty. You can add them later by saving the workspace again.
 
 ---
 
@@ -698,8 +701,9 @@ All keyboard shortcuts are customizable. Open Settings > Keyboard Shortcuts, or 
 | Ctrl+2 | Agent Comm dashboard |
 | Ctrl+3 | Agent Tasks dashboard |
 | Ctrl+4 | Agent Knowledge dashboard |
-| Ctrl+5 | Agent Monitor |
-| Ctrl+6 | Settings |
+| Ctrl+5 | Agent Discover dashboard |
+| Ctrl+6 | Event Stream |
+| Ctrl+7 | Settings |
 
 ### General
 
@@ -716,7 +720,7 @@ All keyboard shortcuts are customizable. Open Settings > Keyboard Shortcuts, or 
 
 ### Customizing Keybindings
 
-1. Open Settings (Ctrl+6) and scroll to **Keyboard Shortcuts**.
+1. Open Settings (Ctrl+7) and scroll to **Keyboard Shortcuts**.
 2. Each shortcut shows its current key combo and a capture button.
 3. Click the capture button, then press the key combination you want.
 4. Press Escape to cancel capture, or press any other key combo to assign it.
@@ -822,7 +826,102 @@ The graph fetches data from agent-comm every 10 seconds and renders at 60fps wit
 
 ---
 
-## 18. Troubleshooting
+## 18. Git Sidebar
+
+Read-only view of the git state of the current workspace, docked in the sidebar.
+
+### What it shows
+
+- **Branch line** — current branch name with a detached-HEAD indicator and a dirty indicator if any file is modified
+- **Ahead / behind badges** — commits local is ahead of `@{u}` and commits behind, if an upstream is tracked
+- **File list** — grouped by status: staged, unstaged, untracked. Each row shows the path and the status code (M / A / D / ? / R / U).
+- **Last commit** — the subject, author, and age of HEAD.
+
+### How it updates
+
+The sidebar polls `git status` on the active workspace's root at a 1 s TTL cache. When any file inside `.git/HEAD` or `.git/index` changes, a debounced push event fires and the sidebar refreshes immediately — so committing or branch-switching from a terminal is reflected within a second.
+
+### Clicking a file
+
+Clicking a file row opens the diff viewer with that file's working-tree-vs-HEAD diff. Right-clicking offers **Open in external editor** (see section 20).
+
+### Read-only
+
+v1 is **read-only**. You cannot stage, commit, push, or pull from the sidebar — drive those operations from the terminal as usual. This is deliberate: the sidebar is a visibility tool, not a git frontend.
+
+### Non-git directories
+
+If the active workspace root isn't a git repository, the sidebar shows an empty state with a "Not a git repository" hint instead of erroring.
+
+---
+
+## 19. Diff Viewer
+
+Keyboard-driven overlay for inspecting what an agent changed.
+
+### Opening a diff
+
+- **Click a file** in the git sidebar — opens the working-tree-vs-HEAD diff
+- **Trigger** via the command palette or `window.agentDesk.diff.render(old, new)` from a plugin
+- **Programmatic**: dispatch a `diff:open` CustomEvent on `window` with `{ path, root }` in the detail
+
+### Reading the diff
+
+- **Unified mode** (default) — single column with +/- gutters and pre-highlighted syntax
+- **Side-by-side mode** — toggle with **s**; old text on the left, new text on the right, blank-padded rows to align add/del pairs
+- **Hunks** are rendered as separate sections with a `@@ -oldStart,oldLines +newStart,newLines @@` header
+- **Colors** follow your current theme — github-dark under dark themes, github-light under light
+
+### Keyboard shortcuts inside the viewer
+
+| Key    | Action                                          |
+| ------ | ----------------------------------------------- |
+| `j`    | Jump to next hunk                               |
+| `k`    | Jump to previous hunk                           |
+| `s`    | Toggle unified / side-by-side                   |
+| `o`    | Open current file in external editor            |
+| `Esc`  | Close                                           |
+
+### Edge cases
+
+- **Binary files** — the viewer detects null bytes and shows "Binary file — no textual preview available" instead of rendering garbage
+- **Large files** (> 500 KB on either side) — syntax highlighting is skipped and the diff renders as plain text with a "highlighting skipped" status. The diff itself is still computed.
+
+---
+
+## 20. External Editor Handoff
+
+When you want to leave Agent Desk and keep editing a file in your real editor, just right-click and pick "Open in \<editor>".
+
+### Supported editors
+
+On first launch, Agent Desk scans your `PATH` for:
+
+- `code` — Visual Studio Code
+- `cursor` — Cursor
+- `windsurf` — Windsurf
+- `codium` — VSCodium
+
+The first one found becomes your default. You can switch via `config.settings.externalEditor` (a settings UI is a follow-up).
+
+### Where the menu appears
+
+1. **Terminal tab right-click** — opens the terminal's current working directory
+2. **Agent monitor card right-click** — opens the agent's working directory
+3. **Git sidebar file row right-click** — opens the specific file
+4. **Diff viewer** — press **o** inside the viewer to open the current file at the viewed line
+
+### How the handoff works
+
+Agent Desk tries the editor's URL scheme first (`vscode://file/<path>:<line>:<col>`, `cursor://file/...`, etc.) via `shell.openExternal`. If the URL scheme isn't registered — common if the editor has never been launched — it falls back to spawning the CLI directly with `--goto <path>:<line>:<col>`, detached, with stdio ignored so Agent Desk can exit without tearing down the child.
+
+### Web / server target
+
+If you're running Agent Desk's server target and connecting via the web or PWA client, `editor:open` returns `{ ok: false, reason: 'desktop-only' }` — opening a file in an editor on the server host has no meaning for a remote browser user.
+
+---
+
+## 21. Troubleshooting
 
 ### App Won't Start
 

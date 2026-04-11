@@ -189,7 +189,7 @@ const COMMANDS = [
   },
   {
     id: 'view-tasks',
-    label: 'View: Tasks',
+    label: 'View: Agent Tasks',
     icon: 'task_alt',
     shortcut: 'Ctrl+3',
     action: () => registry.switchView('tasks'),
@@ -203,23 +203,16 @@ const COMMANDS = [
   },
   {
     id: 'view-discover',
-    label: 'View: Discover',
+    label: 'View: Agent Discover',
     icon: 'widgets',
     shortcut: 'Ctrl+5',
     action: () => registry.switchView('discover'),
   },
   {
-    id: 'view-monitor',
-    label: 'View: Agent Monitor',
-    icon: 'hub',
-    shortcut: 'Ctrl+6',
-    action: () => registry.switchView('monitor'),
-  },
-  {
     id: 'view-settings',
     label: 'View: Settings',
     icon: 'settings',
-    shortcut: 'Ctrl+8',
+    shortcut: 'Ctrl+7',
     action: () => registry.switchView('settings'),
   },
   {
@@ -269,7 +262,7 @@ const COMMANDS = [
     id: 'view-events',
     label: 'View: Events',
     icon: 'timeline',
-    shortcut: 'Ctrl+7',
+    shortcut: 'Ctrl+6',
     action: () => registry.switchView('events'),
   },
   {
@@ -724,9 +717,11 @@ export function showShortcutsOverlay() {
       <h3>Views</h3>
       <div class="shortcut-row"><span class="label">Terminals</span><kbd>Ctrl+1</kbd></div>
       <div class="shortcut-row"><span class="label">Agent Comm</span><kbd>Ctrl+2</kbd></div>
-      <div class="shortcut-row"><span class="label">Tasks</span><kbd>Ctrl+3</kbd></div>
+      <div class="shortcut-row"><span class="label">Agent Tasks</span><kbd>Ctrl+3</kbd></div>
       <div class="shortcut-row"><span class="label">Agent Knowledge</span><kbd>Ctrl+4</kbd></div>
-
+      <div class="shortcut-row"><span class="label">Agent Discover</span><kbd>Ctrl+5</kbd></div>
+      <div class="shortcut-row"><span class="label">Events</span><kbd>Ctrl+6</kbd></div>
+      <div class="shortcut-row"><span class="label">Settings</span><kbd>Ctrl+7</kbd></div>
 
       <h3>Workspaces</h3>
       <div class="shortcut-row"><span class="label">Save Workspace</span><kbd>Ctrl+Shift+W</kbd></div>

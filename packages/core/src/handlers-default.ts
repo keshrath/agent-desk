@@ -21,6 +21,10 @@ import { writeCrashLog, CRASH_LOG_DIR } from './crash-reporter.js';
 import { AgentBridges, knowledge as knowledgeBridge } from './agent-bridges.js';
 import { detectInstalledTools, autoConfigureMcpServers } from './mcp-autoconfig.js';
 import { getPluginInfoList, getPluginConfig, type LoadedPlugin } from './plugin-system.js';
+import { buildWorkspaceHandlers } from './handlers/workspace-handlers.js';
+import { buildGitHandlers } from './handlers/git-handlers.js';
+import { buildDiffHandlers } from './handlers/diff-handlers.js';
+import { buildEditorHandlers } from './handlers/editor-handlers.js';
 
 export interface BuildHandlersDeps {
   terminals: TerminalManager;
@@ -245,6 +249,13 @@ export function buildDefaultRequestHandlers(deps: BuildHandlersDeps): RequestHan
     // plugins
     'plugins:list': () => getPluginInfoList(plugins),
     'plugins:getConfig': (pluginId) => getPluginConfig(plugins, pluginId),
+
+    // workspace / git / diff / editor — delegated to feature-scoped handler
+    // modules so parallel teams can iterate without colliding on this file.
+    ...buildWorkspaceHandlers({ terminals }),
+    ...buildGitHandlers(),
+    ...buildDiffHandlers(),
+    ...buildEditorHandlers(),
   };
 }
 

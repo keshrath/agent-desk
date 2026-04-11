@@ -204,6 +204,32 @@ export const API_SHAPE: ApiShape = {
     list: { kind: 'request', channel: 'plugins:list' },
     getConfig: { kind: 'request', channel: 'plugins:getConfig' },
   },
+
+  workspace: {
+    list: { kind: 'request', channel: 'workspace:list' },
+    get: { kind: 'request', channel: 'workspace:get' },
+    save: { kind: 'request', channel: 'workspace:save' },
+    delete: { kind: 'request', channel: 'workspace:delete' },
+    open: { kind: 'request', channel: 'workspace:open' },
+    recent: { kind: 'request', channel: 'workspace:recent' },
+  },
+
+  git: {
+    status: { kind: 'request', channel: 'git:status' },
+    diff: { kind: 'request', channel: 'git:diff' },
+    file: { kind: 'request', channel: 'git:file' },
+    discover: { kind: 'request', channel: 'git:discover' },
+    onUpdate: { kind: 'subscribe', channel: 'git:update' },
+  },
+
+  diff: {
+    render: { kind: 'request', channel: 'diff:render' },
+  },
+
+  editor: {
+    detect: { kind: 'request', channel: 'editor:detect' },
+    open: { kind: 'request', channel: 'editor:open' },
+  },
 };
 
 /** Top-level (non-bucketed) bindings. */

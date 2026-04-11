@@ -57,17 +57,18 @@ Agent Desk has six main views, accessible from the sidebar or keyboard shortcuts
 |------|----------|-------------|
 | Terminals | <kbd>Ctrl+1</kbd> | Terminal grid with tabs |
 | Agent Comm | <kbd>Ctrl+2</kbd> | Agent communication dashboard |
-| Tasks | <kbd>Ctrl+3</kbd> | Task pipeline dashboard |
-| Knowledge | <kbd>Ctrl+4</kbd> | Knowledge base dashboard |
-| Agent Monitor | <kbd>Ctrl+5</kbd> | Live agent status cards |
-| Settings | <kbd>Ctrl+6</kbd> | App configuration |
+| Agent Tasks | <kbd>Ctrl+3</kbd> | Task pipeline dashboard |
+| Agent Knowledge | <kbd>Ctrl+4</kbd> | Knowledge base dashboard |
+| Agent Discover | <kbd>Ctrl+5</kbd> | MCP server registry / marketplace |
+| Event Stream | <kbd>Ctrl+6</kbd> | Filterable event timeline |
+| Settings | <kbd>Ctrl+7</kbd> | App configuration |
 
 ### Event Stream
 
-The event stream (<kbd>Ctrl+E</kbd>) is a real-time timeline of everything happening across all terminals -- agent tool calls, file modifications, terminal lifecycle events, errors, and more. It supports filtering by category and full-text search.
+The event stream (<kbd>Ctrl+6</kbd> or <kbd>Ctrl+E</kbd>) is a real-time timeline of everything happening across all terminals -- agent tool calls, file modifications, terminal lifecycle events, errors, and more. It supports filtering by category and full-text search.
 
 ## Next Steps
 
 - [Install Agent Desk](/guide/installation) on your system
 - Follow the [Quick Start](/guide/quick-start) to launch your first agents
-- Explore [Terminals](/guide/terminals) and [Agent Monitor](/guide/agent-monitor) in depth
+- Explore [Terminals](/guide/terminals) and [Workspaces](/guide/workspaces) in depth

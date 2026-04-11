@@ -23,9 +23,9 @@ features:
   - icon: terminal
     title: Multi-Terminal Grid
     details: Run multiple terminals side by side with tabs, splits, drag-and-drop, and resizable panes. Pop out any terminal into its own window.
-  - icon: hub
-    title: Agent Monitor
-    details: See all your AI agents at a glance — who's working, who's idle, what they're doing, and how much they cost. Click any agent to jump to its terminal.
+  - icon: folder_special
+    title: Project Workspaces
+    details: A workspace is a folder. Open it and the git sidebar discovers every repository inside — including submodules at any depth — and spawns your configured AI agents rooted there.
   - icon: rocket_launch
     title: Batch Launch
     details: Start 5 agents with one click. Save reusable templates for common workflows like code reviews or parallel testing.

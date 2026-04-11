@@ -34,15 +34,14 @@ Chain terminals together so that one agent's completion triggers another:
 - **Chain indicators** -- visual indication of chain relationships
 - **Automatic triggering** -- next agent starts when previous completes
 
-## Agent Monitor
+## Agent Detection Surfaces
 
-A dedicated view for monitoring all running agents:
+Detected agents appear on several surfaces (the standalone Agent Monitor view was removed in v1.6.0):
 
-- **Card-based layout** -- one card per detected agent
-- **Live status** -- 2-second refresh cycle
-- **Task integration** -- shows assigned pipeline tasks
-- **Terminal linking** -- click to jump to the agent's terminal
-- **Activity summary** -- recent tool calls and file changes
+- **Terminal tab indicators** -- agent name, live status, attention pulse
+- **Agent Comm dashboard** (Ctrl+2) -- cross-session roster + activity feed
+- **Status bar** -- per-terminal token/cost readout
+- **Batch launcher** -- names spawned agents `agent-{n}` and tracks their lifecycle
 
 ## Communication Graph
 
@@ -58,10 +57,9 @@ Visual network graph of agent-to-agent communication:
 When agent-tasks is running, Agent Desk provides:
 
 - **Task badges on tabs** -- show the task assigned to each agent
-- **Task cards in monitor** -- task title and stage on agent cards
-- **Pipeline visibility** -- see the full pipeline via the Tasks dashboard
+- **Pipeline visibility** -- see the full pipeline via the Agent Tasks dashboard (Ctrl+3)
 
 For detailed guides, see:
 - [Batch Launch & Templates](/guide/batch-launch)
-- [Agent Monitor](/guide/agent-monitor)
+- [Agent Comm](/guide/dashboards)
 - [Communication Graph](/guide/comm-graph)

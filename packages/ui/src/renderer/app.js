@@ -15,13 +15,15 @@ import './views.js';
 import './commands.js';
 import './keybinds.js';
 import './workspaces.js';
+import './workspace-switcher.js';
 import './drag-drop.js';
 import './system-monitor.js';
 import './batch-launcher.js';
 import './templates.js';
-import './agent-monitor.js';
+import './git-sidebar.js';
 import './onboarding.js';
 import './feature-tips.js';
+import './diff-viewer.js';
 
 // -----------------------------------------------------------------------------
 // Global Listeners
@@ -97,7 +99,6 @@ function cleanup() {
   }
   state.terminals.clear();
   registry.destroySystemMonitor();
-  registry.destroyAgentMonitor();
   eventStream.destroy();
   if (state.dockview) {
     state.dockview.dispose();
@@ -106,32 +107,29 @@ function cleanup() {
 }
 
 // -----------------------------------------------------------------------------
-// Session Restore
+// Session Restore — non-blocking banner at top of app with auto-restore countdown
 // -----------------------------------------------------------------------------
 
 function showRestorePrompt(terminalCount) {
   return new Promise((resolve) => {
-    const overlay = document.createElement('div');
-    overlay.className = 'session-restore-overlay';
-
-    const dialog = document.createElement('div');
-    dialog.className = 'session-restore-dialog';
+    const banner = document.createElement('div');
+    banner.className = 'session-restore-banner';
 
     const icon = document.createElement('span');
     icon.className = 'material-symbols-outlined session-restore-icon';
     icon.textContent = 'restore';
-    dialog.appendChild(icon);
+    banner.appendChild(icon);
 
     const msg = document.createElement('div');
     msg.className = 'session-restore-message';
     msg.textContent = `Restore previous session? (${terminalCount} terminal${terminalCount !== 1 ? 's' : ''})`;
-    dialog.appendChild(msg);
+    banner.appendChild(msg);
 
     const countdown = document.createElement('div');
     countdown.className = 'session-restore-countdown';
     let remaining = 10;
     countdown.textContent = `Auto-restoring in ${remaining}s`;
-    dialog.appendChild(countdown);
+    banner.appendChild(countdown);
 
     const btnRow = document.createElement('div');
     btnRow.className = 'session-restore-buttons';
@@ -146,22 +144,25 @@ function showRestorePrompt(terminalCount) {
 
     btnRow.appendChild(noBtn);
     btnRow.appendChild(yesBtn);
-    dialog.appendChild(btnRow);
-    overlay.appendChild(dialog);
-    document.body.appendChild(overlay);
+    banner.appendChild(btnRow);
+
+    // Mount the banner at the very top of #app so it pushes content down
+    // instead of overlaying it. Falls back to body if #app is missing.
+    const app = document.getElementById('app') || document.body;
+    app.insertBefore(banner, app.firstChild);
 
     let timer = null;
     const cleanup = (result) => {
       if (timer) clearInterval(timer);
-      overlay.classList.remove('visible');
-      setTimeout(() => overlay.remove(), 200);
+      banner.classList.remove('visible');
+      setTimeout(() => banner.remove(), 200);
       resolve(result);
     };
 
     noBtn.addEventListener('click', () => cleanup(false));
     yesBtn.addEventListener('click', () => cleanup(true));
 
-    requestAnimationFrame(() => overlay.classList.add('visible'));
+    requestAnimationFrame(() => banner.classList.add('visible'));
 
     timer = setInterval(() => {
       remaining--;
@@ -479,6 +480,8 @@ document.addEventListener('DOMContentLoaded', async function () {
   registry.setupEventStream();
   registry.setupDragDrop();
 
+  if (registry.initWorkspaceSwitcher) registry.initWorkspaceSwitcher();
+
   registry.initDockview();
 
   if (typeof initSettings === 'function') {
@@ -492,7 +495,7 @@ document.addEventListener('DOMContentLoaded', async function () {
 
   registry.updateStatusBar();
   registry.initSystemMonitor();
-  registry.initAgentMonitor();
+  if (registry.initGitSidebar) registry.initGitSidebar();
 
   registry.switchView('terminals');
   if (registry._updateEmptyState) registry._updateEmptyState();

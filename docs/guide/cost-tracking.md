@@ -15,8 +15,9 @@ The widget updates in real-time as agents make API calls.
 
 Each agent terminal maintains its own cost counters. You can see per-agent costs in:
 
-- **Agent Monitor cards** -- each card shows the agent's individual token count and cost
-- **Terminal status** -- agent-detected terminals display cost info in their status area
+- **Status bar** -- the currently-focused terminal's running token count and cost
+- **Tab tooltips** -- hover any agent tab to see its token total
+- **Agent Comm dashboard** (Ctrl+2) -- cross-session cost aggregates per agent
 
 ## How Costs are Tracked
 
@@ -46,6 +47,6 @@ Agent Desk can display notifications when cost thresholds are reached, helping y
 
 ## Related
 
-- [Agent Monitor](/guide/agent-monitor) -- Per-agent cost display
+- [Agent Comm](/guide/dashboards) -- Per-agent cost display
 - [Event Stream](/guide/event-stream) -- Track agent activity
 - [Batch Launch](/guide/batch-launch) -- Resource-aware agent launching

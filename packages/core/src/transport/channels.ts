@@ -52,6 +52,149 @@ export interface DiscoverSnapshot {
 }
 
 // ---------------------------------------------------------------------------
+// Workspace (project-centric records with root, env, color, agent selection)
+// ---------------------------------------------------------------------------
+
+export interface SavedTerminal {
+  panelId: string;
+  command: string;
+  args: string[];
+  cwd: string;
+  title: string;
+  profile: string;
+  icon: string;
+}
+
+export interface Workspace {
+  id: string;
+  name: string;
+  rootPath: string;
+  color: string;
+  env: Record<string, string>;
+  agents: string[];
+  pinned: boolean;
+  lastOpened: number;
+  terminals: SavedTerminal[];
+  layout: unknown;
+}
+
+// ---------------------------------------------------------------------------
+// Git (read-only sidebar model — no staging/commit/push in v1)
+// ---------------------------------------------------------------------------
+
+export type GitFileStatusCode = 'M' | 'A' | 'D' | '?' | 'R' | 'U';
+
+export interface GitFileStatus {
+  path: string;
+  status: GitFileStatusCode;
+  staged: boolean;
+}
+
+export interface GitCommit {
+  sha: string;
+  subject: string;
+  author: string;
+  date: number;
+}
+
+export interface GitStatus {
+  root: string;
+  branch: string | null;
+  detached: boolean;
+  ahead: number;
+  behind: number;
+  files: GitFileStatus[];
+  lastCommit: GitCommit | null;
+}
+
+/**
+ * A discovered git repository inside a workspace folder. A workspace is just
+ * a directory; zero or more git repos may live inside it at arbitrary depth
+ * via submodules. A `GitRepoNode` represents one such repo with its own
+ * status, and carries its submodules as `children` for UI tree rendering.
+ *
+ * - `root`         absolute path to the repo's working tree
+ * - `relativePath` path relative to the workspace root (empty string when
+ *                  the workspace root IS the repo root)
+ * - `name`         display name — last path segment
+ * - `depth`        0 for top-level, 1 for direct submodule, etc.
+ * - `parentRoot`   the containing repo's absolute path, or null for top-level
+ * - `isSubmodule`  true if this node was found via the parent's .gitmodules
+ * - `status`       the repo's own git status (branch, files, ahead/behind)
+ * - `children`     nested submodule nodes (may be empty)
+ * - `error`        non-null when status discovery failed — UI shows a warning
+ */
+export interface GitRepoNode {
+  root: string;
+  relativePath: string;
+  name: string;
+  depth: number;
+  parentRoot: string | null;
+  isSubmodule: boolean;
+  status: GitStatus | null;
+  children: GitRepoNode[];
+  error?: string;
+}
+
+/**
+ * The result of scanning a workspace folder for git repositories. Top-level
+ * repos are in `repos`: if the workspace root itself is a repo there will be
+ * exactly one entry whose `children` holds its submodule tree; if the
+ * workspace root is not a repo, `repos` contains every first-level child
+ * directory that is a repo (sibling-project model).
+ */
+export interface GitRepoTree {
+  workspaceRoot: string;
+  repos: GitRepoNode[];
+  scannedAt: number;
+}
+
+// ---------------------------------------------------------------------------
+// Diff viewer (pre-highlighted hunks produced in core via Shiki)
+// ---------------------------------------------------------------------------
+
+export type DiffLineKind = 'ctx' | 'add' | 'del';
+
+export interface DiffHunkLine {
+  kind: DiffLineKind;
+  oldLine: number | null;
+  newLine: number | null;
+  html: string;
+}
+
+export interface DiffHunk {
+  oldStart: number;
+  oldLines: number;
+  newStart: number;
+  newLines: number;
+  lines: DiffHunkLine[];
+}
+
+export interface RenderedDiff {
+  language: string;
+  hunks: DiffHunk[];
+  truncated: boolean;
+  binary: boolean;
+}
+
+// ---------------------------------------------------------------------------
+// External editor handoff
+// ---------------------------------------------------------------------------
+
+export interface DetectedEditor {
+  id: string;
+  name: string;
+  command: string;
+  path: string;
+  hasUrlScheme: boolean;
+}
+
+export interface EditorOpenResult {
+  ok: boolean;
+  reason?: string;
+}
+
+// ---------------------------------------------------------------------------
 // Request / response
 // ---------------------------------------------------------------------------
 
@@ -152,6 +295,33 @@ export interface RequestChannelMap {
   // plugins
   'plugins:list': { args: []; result: PluginInfo[] };
   'plugins:getConfig': { args: [pluginId: string]; result: PluginConfig };
+
+  // workspace
+  'workspace:list': { args: []; result: Workspace[] };
+  'workspace:get': { args: [id: string]; result: Workspace | null };
+  'workspace:save': { args: [ws: Workspace]; result: boolean };
+  'workspace:delete': { args: [id: string]; result: boolean };
+  'workspace:open': { args: [id: string]; result: { openedTerminals: string[] } };
+  'workspace:recent': { args: [limit?: number]; result: Workspace[] };
+
+  // git
+  'git:status': { args: [root: string]; result: GitStatus | null };
+  'git:diff': { args: [root: string, file: string, staged?: boolean]; result: string };
+  'git:file': { args: [root: string, file: string, ref?: string]; result: string };
+  'git:discover': { args: [workspaceRoot: string]; result: GitRepoTree };
+
+  // diff
+  'diff:render': {
+    args: [oldContent: string, newContent: string, language?: string];
+    result: RenderedDiff;
+  };
+
+  // editor
+  'editor:detect': { args: []; result: DetectedEditor[] };
+  'editor:open': {
+    args: [editorId: string, filePath: string, line?: number, col?: number];
+    result: EditorOpenResult;
+  };
 }
 
 export type RequestChannel = keyof RequestChannelMap;
@@ -186,6 +356,8 @@ export interface PushChannelMap {
   'config:changed': [data: unknown];
   'history:new': [entry: unknown];
   'system:stats-update': [stats: unknown];
+
+  'git:update': [root: string];
 }
 
 export type PushChannel = keyof PushChannelMap;

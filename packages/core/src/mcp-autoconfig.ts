@@ -362,9 +362,11 @@ console.log(JSON.stringify(msg));
   'comm-check-registration': {
     filename: 'comm-check-registration.js',
     content: `#!/usr/bin/env node
-const { existsSync } = require('fs');
-const { join } = require('path');
-const { homedir } = require('os');
+import { existsSync } from 'fs';
+import { join } from 'path';
+import { homedir } from 'os';
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
 
 process.on('uncaughtException', () => { process.exit(0); });
 
@@ -403,9 +405,11 @@ process.stdin.on('end', () => {
   'comm-check-inbox': {
     filename: 'comm-check-inbox.js',
     content: `#!/usr/bin/env node
-const { existsSync } = require('fs');
-const { join } = require('path');
-const { homedir } = require('os');
+import { existsSync } from 'fs';
+import { join } from 'path';
+import { homedir } from 'os';
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
 
 let input = '';
 process.stdin.on('data', (chunk) => { input += chunk; });
@@ -440,9 +444,11 @@ process.stdin.on('end', () => {
   'tasks-cleanup-stop': {
     filename: 'tasks-cleanup-stop.js',
     content: `#!/usr/bin/env node
-const { readFileSync, existsSync, writeFileSync } = require('fs');
-const { join } = require('path');
-const { homedir } = require('os');
+import { readFileSync, existsSync, writeFileSync } from 'fs';
+import { join } from 'path';
+import { homedir } from 'os';
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
 
 const MAX_BLOCKS = 1;
 const COUNTER_FILE = join(homedir(), '.claude', 'task-cleanup-counter.json');
@@ -509,9 +515,11 @@ process.stdin.on('end', () => {
   'tasks-cleanup-start': {
     filename: 'tasks-cleanup-start.js',
     content: `#!/usr/bin/env node
-const { existsSync } = require('fs');
-const { join } = require('path');
-const { homedir } = require('os');
+import { existsSync } from 'fs';
+import { join } from 'path';
+import { homedir } from 'os';
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
 
 const DB_PATH = process.env.AGENT_TASKS_DB || join(homedir(), '.agent-tasks', 'agent-tasks.db');
 

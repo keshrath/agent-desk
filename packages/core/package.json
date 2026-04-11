@@ -1,6 +1,6 @@
 {
   "name": "@agent-desk/core",
-  "version": "1.5.2",
+  "version": "1.6.0",
   "private": true,
   "description": "Transport-agnostic core for agent-desk (terminals, sessions, config, agent bridges). No Electron, no Express.",
   "type": "module",
@@ -18,6 +18,9 @@
     "agent-discover": "^1.0.11",
     "agent-knowledge": "^1.3.12",
     "agent-tasks": "^1.9.10",
-    "node-pty": "^1.1.0"
+    "diff": "^8.0.4",
+    "node-pty": "^1.1.0",
+    "shiki": "^2.5.0",
+    "simple-git": "^3.35.2"
   }
 }

@@ -2,6 +2,66 @@
 
 All notable changes to Agent Desk are documented in this file.
 
+## [1.6.0] - 2026-04-11
+
+Four new features landed in parallel, unified under the "project-centric" framing. Feature work carried out by four isolated subagents coordinating via the pipeline and agent-comm file-coord hook; integration + final E2E gate done on the shared working tree with zero merge conflicts.
+
+### Added
+
+- **Project-centric workspaces** — workspaces are now record-keyed by UUID and carry `rootPath`, per-workspace `env` vars, a `color` picked from a 24-hue palette, a list of default `agents` to spawn on open, and a `pinned` flag. Opening a workspace spawns one terminal per configured agent rooted at `rootPath` with the merged environment. One-shot migration transparently lifts pre-1.6 layout-only records on first read — no user action required.
+  - New `@agent-desk/core` exports: `Workspace`, `SavedTerminal`, `migrateWorkspace`, `migrateWorkspaces`
+  - New channels: `workspace:list` / `get` / `save` / `delete` / `open` / `recent`
+  - New `packages/core/src/workspace-store.ts` pure helpers
+  - Rewritten save dialog in `packages/ui/src/renderer/workspaces.js` — name, folder picker, env kv editor, color picker, agent multi-select, pin toggle
+  - New `packages/ui/src/renderer/workspace-switcher.js` — titlebar dropdown with pinned workspaces at top, recent below
+  - 13 new migration tests + 21 new store tests + 2 Playwright E2E specs
+- **Read-only git sidebar** — inline view of branch, ahead/behind counts, and per-file status (modified / added / deleted / untracked / renamed / conflicted) powered by `simple-git`. Live-updates via `fs.watch` on `.git/HEAD` + `.git/index` with a polling fallback on platforms where watch is unreliable. A 1 s TTL cache absorbs bursty polls. Clicking a file dispatches a `diff:open` CustomEvent that the diff viewer subscribes to — zero hard imports between features.
+  - New channels: `git:status` / `git:diff` / `git:file` + `git:update` push channel
+  - New `packages/core/src/git-store.ts` — simple-git wrapper, 1 s TTL cache, debounced fs.watch
+  - New `packages/ui/src/renderer/git-sidebar.js` — branch line, ahead/behind badges, collapsible file list, per-row context menu
+  - Binary files flagged (no diff attempt); diffs > 1 MB truncated with a "view in external editor" fallback
+  - 17 new git-store unit tests + 2 Playwright E2E specs
+  - Read-only v1 — no staging / commit / push. Read-write is a deliberate follow-up decision.
+- **Shiki-highlighted diff viewer** — open any file's diff as a dockview overlay with pre-highlighted hunks produced in core (never in ui, to keep `@agent-desk/ui` framework-free). Toggle unified / side-by-side with `s`, navigate hunks with `j` / `k`, close with `Esc`, hand off to external editor with `o`. Binary files and files > 500 KB render as plain text with a truncation notice.
+  - New channel: `diff:render` (core → ui)
+  - New `packages/core/src/diff-renderer.ts` — Shiki singleton with github-dark / github-light themes + common language grammars (js, ts, python, go, rust, java, c, cpp, cs, sh, bash, json, yaml, toml, md, html, css, sql)
+  - New `packages/ui/src/renderer/diff-viewer.js` — overlay modal, unified + side-by-side modes, keyboard-driven
+  - Added deps: `shiki@^2.5.0`, `diff@^8.0.4` (core only)
+  - 14 new diff-renderer unit tests + 2 Playwright E2E specs (golden path + binary edge case)
+- **External editor handoff** — detect installed `code` / `cursor` / `windsurf` / `codium` on `PATH` and open files, optionally at a specific line:col, via the `vscode://file/...` URL scheme with a `--goto` spawn fallback. Wired into four context-menu surfaces without any hard coupling between features:
+  1. Terminal tab right-click (uses live shell-integration cwd)
+  2. Agent monitor cards (uses the card's terminal cwd)
+  3. Git sidebar file rows (document-level delegated listener on `.git-file-row[data-path]`)
+  4. Diff viewer (`diff:open-in-editor` CustomEvent bridge)
+  - New channels: `editor:detect` / `editor:open`
+  - New `packages/core/src/external-editor.ts` — detection, URL builder, openFile with spawn fallback
+  - Server target stubs `editor:open` as `{ ok: false, reason: 'desktop-only' }` (no point opening an editor on the server host from a remote client)
+  - 21 new detector unit tests + 4 Playwright E2E specs (mock `code` shim on PATH)
+- **Channel contract bump** — 15 new request channels + 1 push channel, all typed from day one. Feature handlers live in dedicated modules under `packages/core/src/handlers/` so future parallel features never have to edit `handlers-default.ts`.
+
+### Changed
+
+- `config-store.ts` version `1 → 2`. Migration is lossless and idempotent — legacy records are auto-wrapped with sensible defaults on first read. Existing `~/.agent-desk/config.json` files continue to work without intervention.
+- Diff viewer keyboard handler now scopes its "ignore keys in inputs / textareas" rule to targets *inside* the viewer overlay. Fixes a regression where xterm.js's hidden textarea swallowed the viewer's shortcuts while the viewer was open and the underlying terminal still held focus.
+- **Sidebar labels unified**: "Tasks" → "Agent Tasks", "Discover" → "Agent Discover" (consistency with "Agent Comm" and "Agent Knowledge").
+- **Keybind renumber** after Agent Monitor removal: Ctrl+5 = Agent Discover, Ctrl+6 = Event Stream (was Ctrl+7), Ctrl+7 = Settings (was Ctrl+8). Custom overrides in `~/.agent-desk/keybindings.json` are preserved.
+- **Git sidebar auto-collapses** when no workspace is selected instead of taking permanent screen real estate. Expands automatically when a workspace with a valid root path is opened.
+- **Session-restore prompt is now a non-blocking banner** at the top of the app instead of a blocking modal overlay. The auto-restore countdown and Restore / Start Fresh buttons remain; the rest of the UI is interactive while the banner is up.
+
+### Removed
+
+- **Agent Monitor view** and all its scaffolding: `packages/ui/src/renderer/agent-monitor.js`, the sidebar nav entry, the `Ctrl+6` default binding, the `.agent-monitor-*` CSS block (~206 LOC), the `view-monitor` DOM slot, the command-palette entry, the context-menu integration in `#93d`, the `feature-tips` "agent-detected" tip that pointed at the monitor, the `tests/e2e/agent-monitor.spec.ts` E2E spec, and `docs/guide/agent-monitor.md`. Agent detection (`agent-parser.js` + `agent-features.js`) is preserved — it still feeds tab title indicators, cost tracking, session persistence (`session:setAgentInfo`), batch launcher naming, and the agent-comm dashboard. The monitor view itself was duplicated noise on top of those surfaces.
+
+### Fixed
+
+- **Agent Discover view rendering blank** — the embedded `agent-discover` plugin was crashing mid-init because `initTheme()` in its `src/ui/app.js` called `toggle.addEventListener` without null-guarding when the `#theme-toggle` element isn't present in the host shadow DOM. The null-guard is now in place; cross-cuts with the `ReferenceError: addEventListener is null` pageerror that previously fired on every view switch. Fix shipped via agent-discover v1.2.4 (separate submodule release, local patch applied to the bundled `node_modules` copy as an immediate unblock).
+
+### Totals
+
+- **417 unit tests passing** across 23 files (was 343, +74 new)
+- **10 E2E tests passing** across 4 new feature specs
+- Zero regressions; full `tsc` build clean across core, desktop, ui, server; full `prettier --check` clean; scoped `eslint` clean on every team-touched file.
+
 ## [1.4.10] - 2026-04-08
 
 ### Added

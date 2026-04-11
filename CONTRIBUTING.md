@@ -99,8 +99,11 @@ agent-desk/
           keybinding-manager.js     Customizable keyboard shortcuts
           keybinds.js               Shortcut registration
           settings.js               Settings panel
-          agent-monitor.js          Agent Monitor view
-          agent-parser.js           Claude Code output parser
+          workspaces.js             Project-centric workspace CRUD
+          workspace-switcher.js     Titlebar workspace dropdown
+          git-sidebar.js            Read-only git repo tree (incl. submodules)
+          diff-viewer.js            Shiki-highlighted diff overlay
+          agent-parser.js           Claude Code / OpenCode / Aider output parser
           agent-features.js         Terminal chains
           batch-launcher.js         Batch launch modal
           templates.js              Agent templates/recipes CRUD

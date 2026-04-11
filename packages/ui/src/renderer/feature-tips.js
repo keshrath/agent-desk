@@ -29,20 +29,15 @@ const TIP_DEFS = {
     fallbackPosition: { top: 60, right: 60 },
   },
   'agent-detected': {
-    text: 'Click here to see all agents at a glance (Ctrl+5)',
-    anchorSelector: '.nav-btn[data-view="monitor"]',
-    fallbackPosition: { top: 200, left: 48 },
-  },
-  'monitor-opened': {
-    text: 'Click any agent card to focus its terminal',
-    anchorSelector: '#view-monitor',
-    fallbackPosition: { top: 120, left: 200 },
+    text: 'Agent detected — check the tab title for live status',
+    anchorSelector: '#tab-list .tab.agent',
+    fallbackPosition: { top: 60, left: 200 },
   },
 };
 
 const SHORTCUT_HINTS = [
   'Tip: Ctrl+Shift+F to search all terminals',
-  'Tip: Ctrl+5 for Agent Monitor',
+  'Tip: Ctrl+Shift+W to save a project workspace',
   'Tip: Ctrl+Shift+B to batch launch agents',
   'Tip: F1 to open keyboard shortcuts',
   'Tip: Ctrl+Shift+T to open a new terminal',
@@ -176,8 +171,6 @@ function setupTipListeners() {
       origSwitchView.call(this, viewName);
       if (viewName === 'settings') {
         setTimeout(() => showTip('settings-opened'), 800);
-      } else if (viewName === 'monitor') {
-        setTimeout(() => showTip('monitor-opened'), 800);
       }
     };
   }

@@ -36,10 +36,11 @@ Every keyboard shortcut in Agent Desk is customizable. The keybinding system sup
 |--------|----------|-------------|
 | Terminals | <kbd>Ctrl+1</kbd> | Switch to Terminals view |
 | Agent Comm | <kbd>Ctrl+2</kbd> | Switch to Comm dashboard |
-| Tasks | <kbd>Ctrl+3</kbd> | Switch to Tasks dashboard |
-| Knowledge | <kbd>Ctrl+4</kbd> | Switch to Knowledge dashboard |
-| Agent Monitor | <kbd>Ctrl+5</kbd> | Switch to Agent Monitor |
-| Settings | <kbd>Ctrl+6</kbd> | Switch to Settings |
+| Agent Tasks | <kbd>Ctrl+3</kbd> | Switch to Tasks dashboard |
+| Agent Knowledge | <kbd>Ctrl+4</kbd> | Switch to Knowledge dashboard |
+| Agent Discover | <kbd>Ctrl+5</kbd> | Switch to Discover dashboard |
+| Event Stream | <kbd>Ctrl+6</kbd> | Switch to Event Stream |
+| Settings | <kbd>Ctrl+7</kbd> | Switch to Settings |
 
 ### General
 
@@ -62,7 +63,7 @@ Every keyboard shortcut in Agent Desk is customizable. The keybinding system sup
 
 ### Via Settings UI
 
-1. Open Settings (<kbd>Ctrl+6</kbd>)
+1. Open Settings (<kbd>Ctrl+7</kbd>)
 2. Scroll to the **Keybindings** section
 3. Find the shortcut you want to change
 4. Click the key combo to enter capture mode
@@ -111,8 +112,9 @@ Each key is a binding ID and the value is a key combo string. Only overrides nee
 | `view.comm` | Ctrl+2 |
 | `view.tasks` | Ctrl+3 |
 | `view.knowledge` | Ctrl+4 |
-| `view.monitor` | Ctrl+5 |
-| `view.settings` | Ctrl+6 |
+| `view.discover` | Ctrl+5 |
+| `view.events` | Ctrl+6 |
+| `view.settings` | Ctrl+7 |
 | `general.commandPalette` | Ctrl+Shift+P |
 | `general.quickSwitcher` | Ctrl+P |
 | `general.shortcuts` | F1 |

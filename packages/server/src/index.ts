@@ -26,6 +26,9 @@ import { TOKEN, checkExpressToken } from './auth.js';
 import { buildRequestHandlers, buildCommandHandlers } from './handlers.js';
 import { attachWsTransport } from './ws-transport.js';
 import { makePluginAssetHandler } from './plugin-routes.js';
+// Task #93b — wire git:update via the git-handlers module singleton. Imported
+// via subpath because core's index.ts is spec-frozen for Phase 2.
+import { setGitEmitter } from '@agent-desk/core/dist/handlers/git-handlers.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -145,6 +148,9 @@ terminals.onHistoryEntry((entry) => emitAny('history:new', entry));
 
 startMonitoring();
 onStatsUpdate((stats) => emitAny('system:stats-update', stats));
+
+// Git file-watcher pushes — see packages/core/src/handlers/git-handlers.ts.
+setGitEmitter((root: string) => emitAny('git:update', root));
 
 // ---------------------------------------------------------------------------
 // Bootstrap

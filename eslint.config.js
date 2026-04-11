@@ -55,6 +55,7 @@ const rendererGlobals = {
   agentDeskBridge: 'readonly',
   morphdom: 'readonly',
   CSS: 'readonly',
+  crypto: 'readonly',
   saveWorkspace: 'readonly',
   loadWorkspaces: 'readonly',
   showWorkspaceLoadPicker: 'readonly',
@@ -99,6 +100,7 @@ const esModuleFiles = [
   'packages/ui/src/renderer/agent-features.js',
   'packages/ui/src/renderer/drag-drop.js',
   'packages/ui/src/renderer/workspaces.js',
+  'packages/ui/src/renderer/workspace-switcher.js',
   'packages/ui/src/renderer/system-monitor.js',
   'packages/ui/src/renderer/agent-monitor.js',
   'packages/ui/src/renderer/batch-launcher.js',
@@ -108,6 +110,8 @@ const esModuleFiles = [
   'packages/ui/src/renderer/onboarding.js',
   'packages/ui/src/renderer/feature-tips.js',
   'packages/ui/src/renderer/dom-utils.js',
+  'packages/ui/src/renderer/diff-viewer.js',
+  'packages/ui/src/renderer/git-sidebar.js',
   'packages/ui/src/web-entry.js',
 ];
 

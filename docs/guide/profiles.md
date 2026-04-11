@@ -16,7 +16,7 @@ Built-in profiles cannot be deleted, but you can modify their settings.
 
 ## Creating a Profile
 
-1. Open Settings (<kbd>Ctrl+6</kbd>)
+1. Open Settings (<kbd>Ctrl+7</kbd>)
 2. Scroll to the **Profiles** section
 3. Click **Add Profile**
 4. Fill in the fields:
@@ -32,7 +32,7 @@ Built-in profiles cannot be deleted, but you can modify their settings.
 
 The default profile is used when you press <kbd>Ctrl+Shift+T</kbd>. To change it:
 
-1. Open Settings (<kbd>Ctrl+6</kbd>)
+1. Open Settings (<kbd>Ctrl+7</kbd>)
 2. In the **Terminal** section, find "Default Profile"
 3. Select from the dropdown
 

@@ -45,7 +45,7 @@ export default defineConfig({
           items: [
             { text: 'Terminals', link: '/guide/terminals' },
             { text: 'Profiles', link: '/guide/profiles' },
-            { text: 'Agent Monitor', link: '/guide/agent-monitor' },
+            { text: 'Workspaces', link: '/guide/workspaces' },
             { text: 'Batch Launch & Templates', link: '/guide/batch-launch' },
             { text: 'Event Stream', link: '/guide/event-stream' },
             { text: 'Search', link: '/guide/search' },

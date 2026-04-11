@@ -61,7 +61,7 @@ Launches 5 generic Claude agents for parallel work:
 
 ### Creating a Template
 
-1. Open Settings (<kbd>Ctrl+6</kbd>)
+1. Open Settings (<kbd>Ctrl+7</kbd>)
 2. Scroll to the **Templates** section
 3. Click **Add Template**
 4. Configure the template:
@@ -87,5 +87,5 @@ Template commands support variable placeholders that are prompted at launch time
 ## Related
 
 - [Profiles](/guide/profiles) -- Profiles that templates reference
-- [Agent Monitor](/guide/agent-monitor) -- Monitor all launched agents
+- [Agent Comm](/guide/dashboards) -- Monitor all launched agents
 - [Workspaces](/guide/workspaces) -- Save and restore terminal layouts

@@ -47,12 +47,13 @@ You can also drag and drop tabs to rearrange the grid layout. Resize panes by dr
 
 ## Check Agent Status
 
-Switch to the **Agent Monitor** view:
+Agent Desk surfaces agent state in several places — there's no dedicated "Agent Monitor" view in v1.6+:
 
-1. Press <kbd>Ctrl+5</kbd> or click the monitor icon in the sidebar
-2. See live cards for every detected agent with status, assigned tasks, and tool activity
+1. **Terminal tabs** — each detected agent's tab shows name, status, and an attention pulse when the agent is waiting on input
+2. **Agent Comm dashboard** (<kbd>Ctrl+2</kbd>) — cross-session roster + live activity feed
+3. **Status bar** — per-terminal token/cost readout with $2 / $5 warning thresholds
 
-![Agent Monitor](/screenshots/agent-monitor.png)
+![Agent Comm overview](/screenshots/agent-comm.png)
 
 ## Launch Multiple Agents
 
@@ -98,7 +99,7 @@ Restore it anytime with <kbd>Ctrl+Alt+W</kbd>.
 
 ## Customize the App
 
-Open Settings with <kbd>Ctrl+6</kbd> to:
+Open Settings with <kbd>Ctrl+7</kbd> to:
 
 - Change the theme (8 built-in themes + custom theme editor)
 - Configure terminal font, cursor, scrollback

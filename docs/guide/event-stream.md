@@ -72,6 +72,6 @@ Events are color-coded by severity:
 
 ## Related
 
-- [Agent Monitor](/guide/agent-monitor) -- Card-based agent overview
+- [Agent Comm](/guide/dashboards) -- Card-based agent overview
 - [Search](/guide/search) -- Search terminal content (not events)
 - [Cost Tracking](/guide/cost-tracking) -- Track agent API costs

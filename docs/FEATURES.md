@@ -5,7 +5,7 @@ Detailed documentation of Agent Desk features and capabilities.
 ## Table of Contents
 
 - [Terminal Management](#terminal-management)
-- [Agent Monitor](#agent-monitor)
+- [Agent Detection](#agent-detection)
 - [Batch Launcher & Templates](#batch-launcher--templates)
 - [Event Stream](#event-stream)
 - [Cross-Terminal Search](#cross-terminal-search)
@@ -57,31 +57,29 @@ Terminals use [xterm.js](https://xtermjs.org/) with addons:
 
 ---
 
-## Agent Monitor
+## Agent Detection
 
-**Shortcut:** Ctrl+5
+Agent Desk parses terminal output in the background to detect AI agent sessions. Detection is fully automatic — no configuration needed — and results surface on several places in the UI rather than a dedicated "monitor" view (the standalone Agent Monitor was removed in v1.6.0 because its information already lives on the tab bar and inside the Agent Comm overview).
 
-A live card-based dashboard showing all detected agents in your terminals. Each card displays:
+### What detection drives
 
-- **Agent name** and terminal association
-- **Status** (active, idle, waiting, error) derived from recent terminal output
-- **Task assignment** -- if the agent is working on a pipeline task
-- **Tool call count** -- how many tools the agent has called
-- **Uptime** -- how long the agent has been running
-- **Activity indicator** -- pulse animation when the agent is actively working
+- **Terminal tab indicators** — tab titles show the agent name, current status (running / idle / waiting / errored), and a pulse when the agent is awaiting user input.
+- **Cost tracking** — per-terminal token/cost estimates in the status bar with $2 / $5 warning thresholds.
+- **Agent Comm dashboard** (Ctrl+2) — cross-session agent roster, active agents list, and the recent activity feed.
+- **Session persistence** — saved sessions remember which terminal was running which agent so titles and cost survive restarts.
+- **Batch launcher naming patterns** — `agent-{n}` style names on bulk spawns.
 
-Click an agent card to focus its terminal. The monitor auto-refreshes as agents are detected and their status changes.
+### Recognized signals
 
-### Agent Detection
-
-Agents are detected automatically by parsing terminal output. The agent parser (`agent-parser.js`) recognizes:
+The agent parser (`agent-parser.js`) matches on:
 
 - Claude Code tool calls: Read, Write, Edit, Bash, Grep, Glob, TodoRead, TodoWrite, WebFetch, WebSearch, and more
-- File modification patterns
+- OpenCode / Aider / Cursor CLI / Gemini CLI / Amazon Q command patterns
+- File modification markers
 - Test result summaries (pass/fail counts)
 - Error patterns and stack traces
 
-No manual configuration is needed -- if a terminal runs Claude Code, it is detected as an agent.
+No manual configuration is needed — if a terminal runs a known AI coding agent, it is detected.
 
 ---
 
@@ -172,7 +170,7 @@ Profiles define pre-configured terminal environments. Accessible from the new te
 
 ### Custom Profiles
 
-Create in Settings (Ctrl+6) with:
+Create in Settings (Ctrl+7) with:
 
 - **Name** -- display name
 - **Command** -- shell executable (e.g., `pwsh`, `/bin/zsh`, `cmd.exe`)
@@ -372,8 +370,9 @@ Chain indicators appear on terminal tabs showing active chains.
 | Ctrl+2      | Agent Comm view        |
 | Ctrl+3      | Agent Tasks view       |
 | Ctrl+4      | Agent Knowledge view   |
-| Ctrl+5      | Agent Monitor view     |
-| Ctrl+6      | Settings view          |
+| Ctrl+5      | Agent Discover view    |
+| Ctrl+6      | Event Stream view      |
+| Ctrl+7      | Settings view          |
 
 ### General Shortcuts
 
@@ -392,7 +391,7 @@ Chain indicators appear on terminal tabs showing active chains.
 
 All shortcuts are customizable via:
 
-1. **Settings UI** (Ctrl+6) -- use the capture mode to record new key combinations
+1. **Settings UI** (Ctrl+7) -- use the capture mode to record new key combinations
 2. **Keybindings file** (`~/.agent-desk/keybindings.json`) -- edit directly for bulk changes
 
 User overrides take precedence over defaults. Press **F1** to view all available shortcuts.

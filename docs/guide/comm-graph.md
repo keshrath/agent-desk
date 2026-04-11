@@ -43,5 +43,5 @@ The Communication Graph requires the agent-comm service to be running at the con
 ## Related
 
 - [Dashboard Services](/guide/dashboards) -- Agent-comm service setup
-- [Agent Monitor](/guide/agent-monitor) -- Card-based agent overview
+- [Agent Comm](/guide/dashboards) -- Card-based agent overview
 - [Batch Launch](/guide/batch-launch) -- Launch agent teams

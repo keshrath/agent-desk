@@ -17,7 +17,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
+      - run: npm install --no-audit --no-fund
       - run: npm run build
       - run: npx eslint packages/*/src
       - run: npx prettier --check "packages/**/*.{ts,js,css,html}"
@@ -40,7 +40,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
+      - run: npm install --no-audit --no-fund
       - run: npm run build
       - run: npx electron-builder --linux --publish never
       - uses: actions/upload-artifact@v4
@@ -61,7 +61,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
+      - run: npm install --no-audit --no-fund
       - run: npm run build
       - run: npx electron-builder --win --publish never
       - uses: actions/upload-artifact@v4
@@ -81,7 +81,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
+      - run: npm install --no-audit --no-fund
       - run: npm run build
       - run: npx electron-builder --mac --arm64 --x64 --publish never
       - uses: actions/upload-artifact@v4
@@ -106,7 +106,7 @@ jobs:
           node-version: 22
           registry-url: https://registry.npmjs.org
           cache: npm
-      - run: npm ci
+      - run: npm install --no-audit --no-fund
       - run: npm run build
       - run: npm publish --provenance --access public
         env:

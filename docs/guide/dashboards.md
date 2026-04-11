@@ -32,7 +32,7 @@ The Agent Tasks dashboard provides a visual pipeline for task management:
 - **Dependency tracking** -- visual dependency graph between tasks
 - **Progress monitoring** -- see what each agent is working on
 
-Tasks created here appear on agent cards in the [Agent Monitor](/guide/agent-monitor).
+Tasks created here appear on agent cards in the [Agent Comm](/guide/dashboards).
 
 ## Agent Knowledge Dashboard
 
@@ -45,7 +45,7 @@ The Agent Knowledge dashboard is a searchable knowledge base:
 
 ## Configuration
 
-Configure dashboard URLs in Settings (<kbd>Ctrl+6</kbd>) under the Dashboard URLs section:
+Configure dashboard URLs in Settings (<kbd>Ctrl+7</kbd>) under the Dashboard URLs section:
 
 | Setting | Default |
 |---------|---------|
@@ -85,6 +85,6 @@ Agent Desk works perfectly without any dashboard services running. The Comm, Tas
 
 ## Related
 
-- [Agent Monitor](/guide/agent-monitor) -- Uses agent-tasks API for task badges
+- [Agent Comm](/guide/dashboards) -- Uses agent-tasks API for task badges
 - [Communication Graph](/guide/comm-graph) -- Visual graph of agent communication
 - [Cost Tracking](/guide/cost-tracking) -- Token and cost metrics

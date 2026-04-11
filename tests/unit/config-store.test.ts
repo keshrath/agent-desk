@@ -3,7 +3,7 @@
 // CONFIG_FILE constant captures the override.
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { mkdtempSync, rmSync, existsSync, readFileSync, writeFileSync } from 'fs';
+import { mkdtempSync, rmSync, existsSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
@@ -28,7 +28,7 @@ describe('config-store', () => {
   it('readConfig() creates the file with defaults on first read', async () => {
     const { readConfig, CONFIG_FILE } = await import('../../packages/core/src/config-store.js');
     const cfg = readConfig();
-    expect(cfg.version).toBe(1);
+    expect(cfg.version).toBe(2);
     expect(cfg.settings).toEqual({});
     expect(cfg.profiles).toEqual([]);
     expect(cfg.workspaces).toEqual({});
@@ -38,16 +38,16 @@ describe('config-store', () => {
   it('writeConfig() persists and readConfig() reads it back', async () => {
     const { readConfig, writeConfig } = await import('../../packages/core/src/config-store.js');
     writeConfig({
-      version: 1,
+      version: 2,
       settings: { theme: 'dark', fontSize: 14 },
       profiles: [{ name: 'work' }],
-      workspaces: { main: { layout: 'grid' } },
+      workspaces: {},
     });
     const cfg = readConfig();
     expect(cfg.settings.theme).toBe('dark');
     expect(cfg.settings.fontSize).toBe(14);
     expect(cfg.profiles).toHaveLength(1);
-    expect(cfg.workspaces.main).toEqual({ layout: 'grid' });
+    expect(cfg.workspaces).toEqual({});
   });
 
   it('readConfig() returns defaults when the file is malformed JSON', async () => {
@@ -55,7 +55,7 @@ describe('config-store', () => {
     readConfig();
     writeFileSync(CONFIG_FILE, '{ this is not json', 'utf-8');
     const cfg = readConfig();
-    expect(cfg.version).toBe(1);
+    expect(cfg.version).toBe(2);
     expect(cfg.settings).toEqual({});
   });
 
@@ -64,7 +64,7 @@ describe('config-store', () => {
     readConfig();
     writeFileSync(CONFIG_FILE, JSON.stringify({ settings: { theme: 'light' } }), 'utf-8');
     const cfg = readConfig();
-    expect(cfg.version).toBe(1);
+    expect(cfg.version).toBe(2);
     expect(cfg.settings.theme).toBe('light');
     expect(cfg.profiles).toEqual([]);
   });
@@ -99,7 +99,7 @@ describe('config-store watchConfig', () => {
     await wait(250); // clear any suppression
     writeFileSync(
       CONFIG_FILE,
-      JSON.stringify({ version: 1, settings: { a: 1 }, profiles: [], workspaces: {} }),
+      JSON.stringify({ version: 2, settings: { a: 1 }, profiles: [], workspaces: {} }),
       'utf-8',
     );
     await wait(120);
@@ -121,7 +121,7 @@ describe('config-store watchConfig', () => {
     writeFileSync(
       CONFIG_FILE,
       JSON.stringify({
-        version: 1,
+        version: 2,
         settings: { theme: 'neon' },
         profiles: [],
         workspaces: {},
@@ -143,7 +143,7 @@ describe('config-store watchConfig', () => {
     const stop = watchConfig((data) => received.push(data));
     await wait(30);
     writeConfig({
-      version: 1,
+      version: 2,
       settings: { own: true },
       profiles: [],
       workspaces: {},
@@ -161,7 +161,7 @@ describe('config-store watchConfig', () => {
     const received: unknown[] = [];
     const stop = watchConfig((data) => received.push(data));
     writeConfig({
-      version: 1,
+      version: 2,
       settings: { first: true },
       profiles: [],
       workspaces: {},
@@ -217,7 +217,7 @@ describe('config-store watchConfig', () => {
     await wait(30);
     writeFileSync(
       CONFIG_FILE,
-      JSON.stringify({ version: 1, settings: { x: 1 }, profiles: [], workspaces: {} }),
+      JSON.stringify({ version: 2, settings: { x: 1 }, profiles: [], workspaces: {} }),
       'utf-8',
     );
     await wait(150);

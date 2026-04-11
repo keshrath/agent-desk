@@ -49,9 +49,21 @@ export interface BuildOptions {
 
 export function buildRequestHandlers(deps: BuildHandlersDeps, opts: BuildOptions = {}): RequestHandlers {
   const defaults = buildDefaultRequestHandlers(deps);
-  if (!opts.readOnly) return defaults;
 
-  const wrapped: RequestHandlers = { ...defaults };
+  // External-editor handoff is desktop-only: spawning a VS Code CLI on the
+  // server box does nothing useful for a remote web user. Override the
+  // default (spawn-based) implementation to return a structured failure so
+  // the UI can surface a "not available" state without throwing.
+  // editor:detect is allowed — it only reads PATH and can usefully report
+  // "no editors" to a web client.
+  const base: RequestHandlers = {
+    ...defaults,
+    'editor:open': () => ({ ok: false, reason: 'desktop-only' }),
+  };
+
+  if (!opts.readOnly) return base;
+
+  const wrapped: RequestHandlers = { ...base };
   for (const ch of READONLY_BLOCKED_CHANNELS) {
     if (ch in wrapped) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any

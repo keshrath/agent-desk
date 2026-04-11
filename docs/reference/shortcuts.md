@@ -34,10 +34,11 @@ Complete reference of all keyboard shortcuts in Agent Desk. All shortcuts are [c
 |----------|--------|
 | <kbd>Ctrl+1</kbd> | Terminals |
 | <kbd>Ctrl+2</kbd> | Agent Comm dashboard |
-| <kbd>Ctrl+3</kbd> | Tasks dashboard |
+| <kbd>Ctrl+3</kbd> | Agent Tasks dashboard |
 | <kbd>Ctrl+4</kbd> | Agent Knowledge dashboard |
-| <kbd>Ctrl+5</kbd> | Agent Monitor |
-| <kbd>Ctrl+6</kbd> | Settings |
+| <kbd>Ctrl+5</kbd> | Agent Discover dashboard |
+| <kbd>Ctrl+6</kbd> | Event Stream |
+| <kbd>Ctrl+7</kbd> | Settings |
 
 ## General
 

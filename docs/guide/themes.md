@@ -28,7 +28,7 @@ Agent Desk includes 8 built-in themes and a custom theme editor. Themes control 
 
 ## Changing Themes
 
-1. Open Settings (<kbd>Ctrl+6</kbd>)
+1. Open Settings (<kbd>Ctrl+7</kbd>)
 2. In the **Appearance** section, select a theme from the dropdown
 3. The theme is applied immediately
 
@@ -46,7 +46,7 @@ The custom theme editor lets you create your own themes with full control over e
 
 ### Creating a Custom Theme
 
-1. Open Settings (<kbd>Ctrl+6</kbd>)
+1. Open Settings (<kbd>Ctrl+7</kbd>)
 2. Scroll to the **Themes** section
 3. Click **Create Theme**
 4. Configure colors for:

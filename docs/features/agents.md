@@ -22,7 +22,7 @@ Agent status is derived from output patterns:
 | **Idle** | Agent is waiting for user input |
 | **Exited** | Agent process has terminated |
 
-Status is shown as a color-coded dot on the terminal tab and in the Agent Monitor.
+Status is shown as a color-coded dot on the terminal tab and in the Agent Comm dashboard.
 
 ## Tool Call Monitoring
 
@@ -33,7 +33,7 @@ Every tool invocation is captured and logged:
 - **Timing** -- when the tool was called
 - **Result** -- success or failure indication
 
-Tool calls appear in the [Event Stream](/guide/event-stream) and on [Agent Monitor](/guide/agent-monitor) cards.
+Tool calls appear in the [Event Stream](/guide/event-stream) and on [Agent Comm](/guide/dashboards) cards.
 
 ## File Modification Tracking
 
@@ -82,8 +82,8 @@ Agents are automatically named based on their output. When the parser detects a 
 All agent events flow through a central event bus that powers:
 
 - The [Event Stream](/guide/event-stream) timeline
-- The [Agent Monitor](/guide/agent-monitor) cards
+- The [Agent Comm](/guide/dashboards) cards
 - Terminal tab status indicators
 - Desktop notifications
 
-For the full guide, see [Agent Monitor](/guide/agent-monitor).
+For the full guide, see [Agent Comm](/guide/dashboards).

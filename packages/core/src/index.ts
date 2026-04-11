@@ -26,7 +26,14 @@ export {
 } from './mcp-autoconfig.js';
 export type { ConfigResult } from './mcp-autoconfig.js';
 
-export { CONFIG_FILE, readConfig, writeConfig, watchConfig } from './config-store.js';
+export {
+  CONFIG_FILE,
+  readConfig,
+  writeConfig,
+  watchConfig,
+  migrateWorkspace,
+  migrateWorkspaces,
+} from './config-store.js';
 export type { ConfigData } from './config-store.js';
 
 export { KEYBINDINGS_FILE, readKeybindings, writeKeybindings } from './keybindings-store.js';
@@ -44,6 +51,8 @@ export type { EmitFn, BridgeStatus, BridgesStatus } from './agent-bridges.js';
 
 export { buildDefaultRequestHandlers, buildDefaultCommandHandlers } from './handlers-default.js';
 export type { BuildHandlersDeps } from './handlers-default.js';
+
+export { renderDiff, detectLanguage, initHighlighter } from './diff-renderer.js';
 
 export {
   discoverPlugins,
@@ -86,4 +95,18 @@ export type {
   DiscoverSnapshot,
   KnowledgeReadResult,
   KnowledgeSessionListItem,
+  Workspace,
+  SavedTerminal,
+  GitStatus,
+  GitFileStatus,
+  GitFileStatusCode,
+  GitCommit,
+  GitRepoNode,
+  GitRepoTree,
+  DiffLineKind,
+  DiffHunk,
+  DiffHunkLine,
+  RenderedDiff,
+  DetectedEditor,
+  EditorOpenResult,
 } from './transport/channels.js';

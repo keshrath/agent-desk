@@ -25,6 +25,9 @@ import { mountIpcBridge } from './ipc-bridge.js';
 import { buildDesktopRequestHandlers, buildDesktopCommandHandlers } from './desktop-handlers.js';
 import { mountElectronHandlers } from './electron-handlers.js';
 import { discoverPlugins, registerPluginProtocol, type LoadedPlugin } from './plugin-electron.js';
+// Task #93b — wire the git push channel. Imported via subpath because core's
+// index.ts is spec-frozen for Phase 2; this is the single approved exception.
+import { setGitEmitter } from '@agent-desk/core/dist/handlers/git-handlers.js';
 
 setAppVersion(app.getVersion());
 setupCrashHandlers();
@@ -260,6 +263,7 @@ const PUSH_CHANNELS: PushChannel[] = [
   'config:changed',
   'history:new',
   'system:stats-update',
+  'git:update',
 ];
 
 function wireCorePushBus(router: ReturnType<typeof createRouter>): void {
@@ -273,6 +277,9 @@ function wireCorePushBus(router: ReturnType<typeof createRouter>): void {
   });
   startMonitoring();
   onStatsUpdate((stats) => router.emit('system:stats-update', stats));
+  // Task #93b — git file watcher fires this whenever .git/HEAD or .git/index
+  // change. The UI subscribes to 'git:update' and refreshes its sidebar.
+  setGitEmitter((root: string) => router.emit('git:update', root));
 }
 
 function setupIPC(): void {
